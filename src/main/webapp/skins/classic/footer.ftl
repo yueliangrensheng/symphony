@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -27,29 +27,15 @@
                     <use xlink:href="#github"></use>
                 </svg>
             </a> &nbsp;
-            <a href="http://weibo.com/u/2778228501" target="_blank" class="tooltipped tooltipped-n"
-               aria-label="${followWeiboLabel}">
-                <svg class="icon-weibo">
-                    <use xlink:href="#weibo"></use>
-                </svg>
-            </a> &nbsp;
-            <a target="_blank" rel="noopener" class="tooltipped tooltipped-n" aria-label="${joinTelegramLabel}"
-               href="https://t.me/b3log">
-                <svg class="icon-telegram">
-                    <use xlink:href="#icon-telegram"></use>
-                </svg>
-            </a>
         </div>
         <div class="fn-flex-1">
             <div class="footer-nav fn-clear">
                 <a rel="help" href="${servePath}/about">${aboutLabel}</a>
-                <a href="https://hacpai.com/article/1457158841475">API</a>
                 <a href="${servePath}/tag/announcement">${symAnnouncementLabel}</a>
                 <a href="${servePath}/domains">${domainLabel}</a>
                 <a href="${servePath}/tags">${tagLabel}</a>
                 <a href="${servePath}/statistic">${dataStatLabel}</a>
                 <div class="fn-right">
-                    <a rel="copyright" href="https://hacpai.com" target="_blank">hacpai.com</a>
                 ${visionLabel}
                 </div>
             </div>
@@ -70,10 +56,13 @@
 
 <script src="${staticServePath}/js/symbol-defs${miniPostfix}.js?${staticResourceVersion}"></script>
 <script src="${staticServePath}/js/lib/compress/libs.min.js?${staticResourceVersion}"></script>
+<script src="https://cdn.jsdelivr.net/npm/vditor@1.5.7/dist/index.min.js"></script>
 <script src="${staticServePath}/js/common${miniPostfix}.js?${staticResourceVersion}"></script>
 <script>
     var Label = {
-        markedAvailable: ${markedAvailable?c},
+        commentEditorPlaceholderLabel: '${commentEditorPlaceholderLabel}',
+        langLabel: '${langLabel}',
+        markdownHttpAvailable: ${markdownHttpAvailable?c},
         reportSuccLabel: '${reportSuccLabel}',
         breezemoonLabel: '${breezemoonLabel}',
         confirmRemoveLabel: "${confirmRemoveLabel}",
@@ -130,4 +119,3 @@
     Util.initSearch('${algoliaAppId}', '${algoliaSearchKey}', '${algoliaIndex}')
 </script>
 </#if>
-${footerPCCode}

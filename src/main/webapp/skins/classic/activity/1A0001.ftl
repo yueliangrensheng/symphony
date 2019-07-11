@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -37,7 +37,7 @@
                                  aria-label="${activity1A0001Label}" style="background-image:url('${staticServePath}/images/activities/1A0001.png')"></div>
                             ${activity1A0001TitleLabel}
                         </h2>
-                        <div class="content-reset fn-content">
+                        <div class="vditor-reset fn-content">
                             ${activity1A0001GuideLabel}
 
                             <#if !closed && !closed1A0001 && !end && !collected && !participated>

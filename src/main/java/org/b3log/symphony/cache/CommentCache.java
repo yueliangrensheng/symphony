@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -23,7 +23,6 @@ import org.b3log.latke.cache.CacheFactory;
 import org.b3log.latke.ioc.Singleton;
 import org.b3log.symphony.model.Comment;
 import org.b3log.symphony.util.JSONs;
-import org.b3log.symphony.util.Symphonys;
 import org.json.JSONObject;
 
 /**
@@ -40,10 +39,6 @@ public class CommentCache {
      * Comment cache.
      */
     private static final Cache cache = CacheFactory.getCache(Comment.COMMENTS);
-
-    static {
-        cache.setMaxCount(Symphonys.getInt("cache.commentCnt"));
-    }
 
     /**
      * Gets a comment by the specified comment id.

@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -166,10 +166,15 @@
                          data-author="${article.articleAuthorName}" class="aplayer article-content"></div>
                 </#if>
                 <#if 3 != article.articleType>
-                <div class="content-reset article-content">${article.articleContent}</div>
+                <div class="vditor-reset article-content">${article.articleContent}</div>
                 <#else>
-                <div id="thoughtProgress"><span class="bar"></span><svg class="icon-video"><use xlink:href="#video"></use></svg><div data-text="" class="content-reset" id="thoughtProgressPreview"></div></div>
-                <div class="content-reset article-content"></div>
+                <div id="thoughtProgress"><span class="bar"></span>
+                    <svg class="icon-video">
+                        <use xlink:href="#video"></use>
+                    </svg>
+                </div>
+                <div class="vditor-reset article-content" id="articleThought" data-author="${article.articleAuthorName}"
+                     data-link="${servePath}${article.articlePermalink}"></div>
                 </#if>
 
                 <div class="fn-clear">
@@ -184,7 +189,7 @@
                 </div>
                 
                 <#if 0 < article.articleRewardPoint>
-                <div class="content-reset" id="articleRewardContent"<#if !article.rewarded> class="reward"</#if>>
+                <div class="vditor-reset" id="articleRewardContent"<#if !article.rewarded> class="reward"</#if>>
                      <#if !article.rewarded>
                      <span>
                         ${rewardTipLabel?replace("{articleId}", article.oId)?replace("{point}", article.articleRewardPoint)}
@@ -228,7 +233,7 @@
                                             <a class="ft-a-title fn-right tooltipped tooltipped-nw" aria-label="${goCommentLabel}"
                                                href="javascript:Comment.goComment('${servePath}/article/${article.oId}?p=${article.articleOfferedComment.paginationCurrentPageNum}&m=${userCommentViewMode}#${article.articleOfferedComment.oId}')"><svg><use xlink:href="#down"></use></svg></a>
                                         </div>
-                                        <div class="content-reset comment">
+                                        <div class="vditor-reset comment">
                                             ${article.articleOfferedComment.commentContent}
                                         </div>
                                     </div>
@@ -272,7 +277,7 @@
                                                 <a class="ft-a-title fn-right tooltipped tooltipped-nw" aria-label="${goCommentLabel}"
                                                    href="javascript:Comment.goComment('${servePath}/article/${article.oId}?p=${comment.paginationCurrentPageNum}&m=${userCommentViewMode}#${comment.oId}')"><svg><use xlink:href="#down"></use></svg></a>
                                             </div>
-                                            <div class="content-reset comment">
+                                            <div class="vditor-reset comment">
                                                 ${comment.commentContent}
                                             </div>
                                         </div>
@@ -287,10 +292,10 @@
                 <#if 1 == userCommentViewMode>
                 <#if isLoggedIn>
                 <#if discussionViewable && article.articleCommentable && permissions["commonAddComment"].permissionGrant>
-                <div class="form fn-clear comment-wrap">
+                <div class="fn-clear comment-wrap">
                     <br/>
                     <div id="replyUseName"> </div>
-                    <textarea id="commentContent" placeholder="${commentEditorPlaceholderLabel}"></textarea>
+                    <div id="commentContent"></div>
                     <br><br>
                     <div class="tip" id="addCommentTip"></div>
 
@@ -299,7 +304,7 @@
                         <label class="anonymous-check">${anonymousLabel}<input type="checkbox" id="commentAnonymous"></label>
                         </#if>
                         <label class="anonymous-check">${onlyArticleAuthorVisibleLabel}<input type="checkbox" id="commentVisible"></label>
-                        <button class="red fn-right" onclick="Comment.add('${article.oId}', '${csrfToken}')">${submitLabel}</button>
+                        <button id="articleCommentBtn" class="red fn-right" onclick="Comment.add('${article.oId}', '${csrfToken}'), this">${submitLabel}</button>
                     </div>
                 </div>
                 </#if>
@@ -339,7 +344,7 @@
                 <#if discussionViewable && article.articleCommentable && permissions["commonAddComment"].permissionGrant>
                 <div class="form fn-clear wrapper">
                     <div id="replyUseName"> </div>
-                    <textarea id="commentContent" placeholder="${commentEditorPlaceholderLabel}"></textarea>
+                    <div id="commentContent"></div>
                     <br><br>
                     <div class="tip" id="addCommentTip"></div>
 
@@ -367,7 +372,7 @@
                     <div class="module-header">
                         <h2>
                             ${sponsorLabel} 
-                            <a href="https://hacpai.com/article/1460083956075" class="fn-right ft-13 ft-gray" target="_blank">${wantPutOnLabel}</a>
+                            <a href="${servePath}/about" class="fn-right ft-13 ft-gray" target="_blank">${wantPutOnLabel}</a>
                         </h2>
                     </div>
                     <div class="module-panel ad fn-clear">
@@ -443,6 +448,7 @@
             </div>
         </div>
         <#include "footer.ftl">
+        <div id="thoughtProgressPreview"></div>
         <script src="${staticServePath}/js/lib/compress/article-libs.min.js?${staticResourceVersion}"></script>
         <script src="${staticServePath}/js/m-article${miniPostfix}.js?${staticResourceVersion}"></script>
         <script src="${staticServePath}/js/channel${miniPostfix}.js?${staticResourceVersion}"></script>
@@ -492,8 +498,6 @@
             Label.uploadFileLabel = '${uploadFileLabel}';
             Label.insertEmojiLabel = '${insertEmojiLabel}';
             Label.commonAtUser = '${permissions["commonAtUser"].permissionGrant?c}';
-            Label.qiniuDomain = '${qiniuDomain}';
-            Label.qiniuUploadToken = '${qiniuUploadToken}';
             Label.noPermissionLabel = '${noPermissionLabel}';
             Label.imgMaxSize = ${imgMaxSize?c};
             Label.fileMaxSize = ${fileMaxSize?c};

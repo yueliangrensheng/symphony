@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -47,7 +47,7 @@ import java.util.Set;
  * Sends a comment notification.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.7.12.5, Nov 17, 2018
+ * @version 1.7.13.0, Apr 11, 2019
  * @since 0.2.0
  */
 @Singleton
@@ -160,8 +160,7 @@ public class CommentNotifier extends AbstractEventListener<JSONObject> {
 
             String originalCmtAuthorId = null;
             if (StringUtils.isNotBlank(originalCmtId)) {
-                final Query numQuery = new Query()
-                        .setPageSize(Integer.MAX_VALUE).setCurrentPageNum(1).setPageCount(1);
+                final Query numQuery = new Query().setPage(1, Integer.MAX_VALUE).setPageCount(1);
 
                 switch (commentViewMode) {
                     case UserExt.USER_COMMENT_VIEW_MODE_C_TRADITIONAL:
@@ -181,7 +180,7 @@ public class CommentNotifier extends AbstractEventListener<JSONObject> {
                 }
 
                 final long num = commentRepository.count(numQuery);
-                final int page = (int) ((num / Symphonys.getInt("articleCommentsPageSize")) + 1);
+                final int page = (int) ((num / Symphonys.ARTICLE_COMMENTS_CNT) + 1);
                 chData.put(Pagination.PAGINATION_CURRENT_PAGE_NUM, page);
 
                 final JSONObject originalCmt = commentRepository.get(originalCmtId);
@@ -190,8 +189,7 @@ public class CommentNotifier extends AbstractEventListener<JSONObject> {
 
                 if (Comment.COMMENT_ANONYMOUS_C_PUBLIC == originalCmt.optInt(Comment.COMMENT_ANONYMOUS)) {
                     chData.put(Comment.COMMENT_T_ORIGINAL_AUTHOR_THUMBNAIL_URL,
-                            avatarQueryService.getAvatarURLByUser(
-                                    UserExt.USER_AVATAR_VIEW_MODE_C_ORIGINAL, originalCmtAuthor, "20"));
+                            avatarQueryService.getAvatarURLByUser(originalCmtAuthor, "20"));
                 } else {
                     chData.put(Comment.COMMENT_T_ORIGINAL_AUTHOR_THUMBNAIL_URL,
                             avatarQueryService.getDefaultAvatarURL("20"));
@@ -200,8 +198,7 @@ public class CommentNotifier extends AbstractEventListener<JSONObject> {
 
             if (Comment.COMMENT_ANONYMOUS_C_PUBLIC == originalComment.optInt(Comment.COMMENT_ANONYMOUS)) {
                 chData.put(Comment.COMMENT_T_AUTHOR_NAME, commenterName);
-                chData.put(Comment.COMMENT_T_AUTHOR_THUMBNAIL_URL, avatarQueryService.getAvatarURLByUser(
-                        UserExt.USER_AVATAR_VIEW_MODE_C_ORIGINAL, commenter, "48"));
+                chData.put(Comment.COMMENT_T_AUTHOR_THUMBNAIL_URL, avatarQueryService.getAvatarURLByUser(commenter, "48"));
             } else {
                 chData.put(Comment.COMMENT_T_AUTHOR_NAME, UserExt.ANONYMOUS_USER_NAME);
                 chData.put(Comment.COMMENT_T_AUTHOR_THUMBNAIL_URL, avatarQueryService.getDefaultAvatarURL("48"));
@@ -210,7 +207,7 @@ public class CommentNotifier extends AbstractEventListener<JSONObject> {
             chData.put(Common.TIME_AGO, langPropsService.get("justNowLabel"));
             chData.put(Comment.COMMENT_CREATE_TIME_STR, DateFormatUtils.format(chData.optLong(Comment.COMMENT_CREATE_TIME), "yyyy-MM-dd HH:mm:ss"));
             String thankTemplate = langPropsService.get("thankConfirmLabel");
-            thankTemplate = thankTemplate.replace("{point}", String.valueOf(Symphonys.getInt("pointThankComment")))
+            thankTemplate = thankTemplate.replace("{point}", String.valueOf(Symphonys.POINT_THANK_COMMENT))
                     .replace("{user}", commenterName);
             chData.put(Comment.COMMENT_T_THANK_LABEL, thankTemplate);
             String cc = shortLinkQueryService.linkArticle(commentContent);
@@ -245,8 +242,7 @@ public class CommentNotifier extends AbstractEventListener<JSONObject> {
             if (hasAtParticipantPerm) {
                 // 1. '@participants' Notification
                 if (commentContent.contains("@participants ")) {
-                    final List<JSONObject> participants = articleQueryService.getArticleLatestParticipants(
-                            UserExt.USER_AVATAR_VIEW_MODE_C_ORIGINAL, articleId, Integer.MAX_VALUE);
+                    final List<JSONObject> participants = articleQueryService.getArticleLatestParticipants(articleId, Integer.MAX_VALUE);
                     int count = participants.size();
                     if (count < 1) {
                         return;
@@ -356,6 +352,11 @@ public class CommentNotifier extends AbstractEventListener<JSONObject> {
                     final String watcherName = watcher.optString(User.USER_NAME);
                     if ((isDiscussion && !articleContentAtUserNames.contains(watcherName)) || commenterName.equals(watcherName)
                             || repliedIds.contains(userId) || atIds.contains(userId)) {
+                        continue;
+                    }
+
+                    // 仅楼主可见回帖不发通知给帖子关注者 https://github.com/b3log/symphony/issues/904
+                    if (Comment.COMMENT_VISIBLE_C_AUTHOR == originalComment.optInt(Comment.COMMENT_VISIBLE)) {
                         continue;
                     }
 

@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -40,7 +40,7 @@
                     <div id="pointBuyInvitecodeTip" class="tip"></div> <br/>
                     <button class="red fn-right" onclick="Settings.pointBuyInvitecode('${csrfToken}')">${confirmExchangeLabel}</button>
                 </div>
-                <ul class="content-reset">
+                <ul class="vditor-reset">
                     <#list invitecodes as invitecode>
                         <li><kbd>${invitecode.code}</kbd> ${invitecode.memo}</li>
                     </#list>

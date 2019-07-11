@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -36,7 +36,7 @@ import java.util.regex.Pattern;
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author Bill Ho
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
- * @version 1.18.0.3, Nov 15, 2018
+ * @version 1.18.0.5, Jun 26, 2019
  * @since 0.2.0
  */
 public final class Tag {
@@ -212,16 +212,6 @@ public final class Tag {
      */
     public static final String TAG_T_TITLE_LOWER_CASE = "tagTitleLowerCase";
 
-    /**
-     * Key of tag links.
-     */
-    public static final String TAG_T_LINKS = "tagLinks";
-
-    /**
-     * Key of tag links count.
-     */
-    public static final String TAG_T_LINKS_CNT = "tagLinksCnt";
-
     //// Tag type constants
     /**
      * Tag type - creator.
@@ -259,7 +249,7 @@ public final class Tag {
     /**
      * Max tag title length.
      */
-    public static final int MAX_TAG_TITLE_LENGTH = Symphonys.getInt("tag.maxTagTitleLength");
+    public static final int MAX_TAG_TITLE_LENGTH = 12;
 
     /**
      * Max tag count.
@@ -269,7 +259,7 @@ public final class Tag {
     /**
      * Tag title pattern string.
      */
-    public static final String TAG_TITLE_PATTERN_STR = "[\\u4e00-\\u9fa5,\\w,&,\\+,\\-,\\.]+";
+    public static final String TAG_TITLE_PATTERN_STR = "[\\u4e00-\\u9fa5\\w&#+\\-.]+";
 
     /**
      * Tag title pattern.

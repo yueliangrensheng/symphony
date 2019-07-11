@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -30,6 +30,7 @@ import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.service.annotation.Service;
 import org.b3log.latke.util.URLs;
+import org.b3log.symphony.processor.FileUploadProcessor;
 import org.b3log.symphony.util.Symphonys;
 import org.json.JSONObject;
 
@@ -57,8 +58,8 @@ public class AudioMgmtService {
      */
     private static final Logger LOGGER = Logger.getLogger(AudioMgmtService.class);
 
-    private static final String BAIDU_API_KEY = Symphonys.get("baidu.yuyin.apiKey");
-    private static final String BAIDU_SECRET_KEY = Symphonys.get("baidu.yuyin.secretKey");
+    private static final String BAIDU_API_KEY = Symphonys.BAIDU_YUYIN_API_KEY;
+    private static final String BAIDU_SECRET_KEY = Symphonys.BAIDU_YUYIN_SECRET_KEY;
     private static String BAIDU_ACCESS_TOKEN;
     private static long BAIDU_ACCESS_TOKEN_TIME;
 
@@ -156,14 +157,14 @@ public class AudioMgmtService {
         try {
             LOGGER.log(Level.INFO, "Removing audio file [" + audioURL + "]");
 
-            if (Symphonys.getBoolean("qiniu.enabled")) {
-                final Auth auth = Auth.create(Symphonys.get("qiniu.accessKey"), Symphonys.get("qiniu.secretKey"));
+            if (Symphonys.QN_ENABLED) {
+                final Auth auth = Auth.create(Symphonys.UPLOAD_QINIU_AK, Symphonys.UPLOAD_QINIU_SK);
                 final BucketManager bucketManager = new BucketManager(auth, new Configuration());
-                final String fileKey = StringUtils.replace(audioURL, Symphonys.get("qiniu.domain") + "/", "");
-                bucketManager.delete(Symphonys.get("qiniu.bucket"), fileKey);
+                final String fileKey = StringUtils.replace(audioURL, Symphonys.UPLOAD_QINIU_DOMAIN + "/", "");
+                bucketManager.delete(Symphonys.UPLOAD_QINIU_BUCKET, fileKey);
             } else {
                 final String fileName = StringUtils.replace(audioURL, Latkes.getServePath() + "/upload", "");
-                final File file = new File(Symphonys.get("upload.dir") + fileName);
+                final File file = new File(Symphonys.UPLOAD_LOCAL_DIR + fileName);
                 FileUtils.deleteQuietly(file);
             }
 
@@ -199,21 +200,22 @@ public class AudioMgmtService {
 
         String ret;
         try {
-            if (Symphonys.getBoolean("qiniu.enabled")) {
-                final Auth auth = Auth.create(Symphonys.get("qiniu.accessKey"), Symphonys.get("qiniu.secretKey"));
+            if (Symphonys.QN_ENABLED) {
+                final Auth auth = Auth.create(Symphonys.UPLOAD_QINIU_AK, Symphonys.UPLOAD_QINIU_SK);
                 final UploadManager uploadManager = new UploadManager(new Configuration());
                 final BucketManager bucketManager = new BucketManager(auth, new Configuration());
                 final String fileKey = "audio/" + type + "/" + textId + ".mp3";
                 try {
-                    bucketManager.delete(Symphonys.get("qiniu.bucket"), fileKey);
+                    bucketManager.delete(Symphonys.UPLOAD_QINIU_BUCKET, fileKey);
                 } catch (final Exception e) {
                     // ignore
                 }
-                uploadManager.put(bytes, fileKey, auth.uploadToken(Symphonys.get("qiniu.bucket")), null, "audio/mp3", false);
-                ret = Symphonys.get("qiniu.domain") + "/" + fileKey;
+                uploadManager.put(bytes, fileKey, auth.uploadToken(Symphonys.UPLOAD_QINIU_BUCKET), null, "audio/mp3", false);
+                ret = Symphonys.UPLOAD_QINIU_DOMAIN + "/" + fileKey;
             } else {
-                final String fileName = UUID.randomUUID().toString().replaceAll("-", "") + ".mp3";
-                try (final OutputStream output = new FileOutputStream(Symphonys.get("upload.dir") + fileName)) {
+                String fileName = UUID.randomUUID().toString().replaceAll("-", "") + ".mp3";
+                fileName = FileUploadProcessor.genFilePath(fileName);
+                try (final OutputStream output = new FileOutputStream(Symphonys.UPLOAD_LOCAL_DIR + fileName)) {
                     IOUtils.write(bytes, output);
                 }
 

@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -53,7 +53,7 @@ public class StopwatchEndAdvice extends ProcessAdvice {
             final Map<String, Object> dataModel = renderer.getRenderDataModel();
             final String requestURI = context.getRequest().getRequestURI();
 
-            final long elapsed = Stopwatchs.getElapsed("Request URI [" + requestURI + ']');
+            final long elapsed = Stopwatchs.getElapsed("Request URI [" + requestURI + "]");
             dataModel.put(Common.ELAPSED, elapsed);
         }
 

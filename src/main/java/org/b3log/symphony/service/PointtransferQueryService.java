@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -43,7 +43,7 @@ import java.util.List;
  * Pointtransfer query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.21.4.1, Oct 1, 2018
+ * @version 1.21.4.2, Jan 10, 2019
  * @since 1.3.0
  */
 @Service
@@ -115,8 +115,8 @@ public class PointtransferQueryService {
         filters.add(new CompositeFilter(CompositeFilterOperator.OR, userFilters));
         filters.add(new PropertyFilter(Pointtransfer.TYPE, FilterOperator.EQUAL, type));
 
-        final Query query = new Query().addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).setCurrentPageNum(1)
-                .setPageSize(fetchSize).setFilter(new CompositeFilter(CompositeFilterOperator.AND, filters));
+        final Query query = new Query().addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).
+                setPage(1, fetchSize).setFilter(new CompositeFilter(CompositeFilterOperator.AND, filters));
 
         try {
             final JSONObject result = pointtransferRepository.get(query);
@@ -132,19 +132,17 @@ public class PointtransferQueryService {
     /**
      * Gets the top balance users with the specified fetch size.
      *
-     * @param avatarViewMode the specified avatar view mode
-     * @param fetchSize      the specified fetch size
+     * @param fetchSize the specified fetch size
      * @return users, returns an empty list if not found
      */
-    public List<JSONObject> getTopBalanceUsers(final int avatarViewMode, final int fetchSize) {
+    public List<JSONObject> getTopBalanceUsers(final int fetchSize) {
         final List<JSONObject> ret = new ArrayList<>();
 
-        final Query query = new Query().addSort(UserExt.USER_POINT, SortDirection.DESCENDING).setCurrentPageNum(1)
-                .setPageSize(fetchSize).
-                        setFilter(new PropertyFilter(UserExt.USER_JOIN_POINT_RANK,
-                                FilterOperator.EQUAL, UserExt.USER_JOIN_POINT_RANK_C_JOIN));
+        final Query query = new Query().addSort(UserExt.USER_POINT, SortDirection.DESCENDING).
+                setPage(1, fetchSize).
+                setFilter(new PropertyFilter(UserExt.USER_JOIN_POINT_RANK, FilterOperator.EQUAL, UserExt.USER_JOIN_XXX_C_JOIN));
 
-        final int moneyUnit = Symphonys.getInt("pointExchangeUnit");
+        final int moneyUnit = Symphonys.POINT_EXCHANGE_UNIT;
         try {
             final JSONObject result = userRepository.get(query);
             final List<JSONObject> users = CollectionUtils.jsonArrayToList(result.optJSONArray(Keys.RESULTS));
@@ -158,7 +156,7 @@ public class PointtransferQueryService {
 
                 user.put(Common.MONEY, (int) Math.floor(user.optInt(UserExt.USER_POINT) / moneyUnit));
 
-                avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+                avatarQueryService.fillUserAvatarURL(user);
 
                 ret.add(user);
             }
@@ -172,19 +170,17 @@ public class PointtransferQueryService {
     /**
      * Gets the top consumption users with the specified fetch size.
      *
-     * @param avatarViewMode the specified avatar view mode
-     * @param fetchSize      the specified fetch size
+     * @param fetchSize the specified fetch size
      * @return users, returns an empty list if not found
      */
-    public List<JSONObject> getTopConsumptionUsers(final int avatarViewMode, final int fetchSize) {
+    public List<JSONObject> getTopConsumptionUsers(final int fetchSize) {
         final List<JSONObject> ret = new ArrayList<>();
 
-        final Query query = new Query().addSort(UserExt.USER_USED_POINT, SortDirection.DESCENDING).setCurrentPageNum(1)
-                .setPageSize(fetchSize).
-                        setFilter(new PropertyFilter(UserExt.USER_JOIN_USED_POINT_RANK,
-                                FilterOperator.EQUAL, UserExt.USER_JOIN_USED_POINT_RANK_C_JOIN));
+        final Query query = new Query().addSort(UserExt.USER_USED_POINT, SortDirection.DESCENDING).
+                setPage(1, fetchSize).
+                setFilter(new PropertyFilter(UserExt.USER_JOIN_USED_POINT_RANK, FilterOperator.EQUAL, UserExt.USER_JOIN_XXX_C_JOIN));
 
-        final int moneyUnit = Symphonys.getInt("pointExchangeUnit");
+        final int moneyUnit = Symphonys.POINT_EXCHANGE_UNIT;
         try {
             final JSONObject result = userRepository.get(query);
             final List<JSONObject> users = CollectionUtils.jsonArrayToList(result.optJSONArray(Keys.RESULTS));
@@ -198,7 +194,7 @@ public class PointtransferQueryService {
 
                 user.put(Common.MONEY, (int) Math.floor(user.optInt(UserExt.USER_USED_POINT) / moneyUnit));
 
-                avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+                avatarQueryService.fillUserAvatarURL(user);
 
                 ret.add(user);
             }
@@ -225,8 +221,8 @@ public class PointtransferQueryService {
      * </pre>
      */
     public JSONObject getUserPoints(final String userId, final int currentPageNum, final int pageSize) {
-        final Query query = new Query().addSort(Keys.OBJECT_ID, SortDirection.DESCENDING)
-                .setCurrentPageNum(currentPageNum).setPageSize(pageSize);
+        final Query query = new Query().addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).
+                setPage(currentPageNum, pageSize);
         final List<Filter> filters = new ArrayList<>();
         filters.add(new PropertyFilter(Pointtransfer.FROM_ID, FilterOperator.EQUAL, userId));
         filters.add(new PropertyFilter(Pointtransfer.TO_ID, FilterOperator.EQUAL, userId));

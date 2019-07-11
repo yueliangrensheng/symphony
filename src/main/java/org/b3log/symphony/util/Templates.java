@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -18,6 +18,7 @@
 package org.b3log.symphony.util;
 
 import freemarker.template.Configuration;
+import freemarker.template.Template;
 import freemarker.template.TemplateExceptionHandler;
 import freemarker.template.Version;
 import org.b3log.latke.logging.Logger;
@@ -27,23 +28,23 @@ import javax.servlet.ServletContext;
 import java.util.TimeZone;
 
 /**
- * Skin utilities.
+ * Templates utilities.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.2, Sep 27, 2018
+ * @version 2.0.0.0, Jan 17, 2018
  * @since 1.3.0
  */
-public final class Skins {
+public final class Templates {
 
     /**
      * Logger.
      */
-    private static final Logger LOGGER = Logger.getLogger(Skins.class);
+    private static final Logger LOGGER = Logger.getLogger(Templates.class);
 
     /**
-     * FreeMarker template configurations for skins (skins/).
+     * FreeMarker template configurations.
      */
-    public static final Configuration SKIN;
+    private static final Configuration TEMPLATES;
 
     /**
      * Freemarker version.
@@ -52,17 +53,28 @@ public final class Skins {
 
     static {
         final ServletContext servletContext = AbstractServletListener.getServletContext();
-        SKIN = new Configuration(FREEMARKER_VER);
-        SKIN.setDefaultEncoding("UTF-8");
-        SKIN.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
-        SKIN.setServletContextForTemplateLoading(servletContext, "skins");
-        SKIN.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
-        SKIN.setLogTemplateExceptions(false);
+        TEMPLATES = new Configuration(FREEMARKER_VER);
+        TEMPLATES.setDefaultEncoding("UTF-8");
+        TEMPLATES.setTimeZone(TimeZone.getTimeZone("Asia/Shanghai"));
+        TEMPLATES.setServletContextForTemplateLoading(servletContext, "skins");
+        TEMPLATES.setTemplateExceptionHandler(TemplateExceptionHandler.RETHROW_HANDLER);
+        TEMPLATES.setLogTemplateExceptions(false);
+    }
+
+    /**
+     * Gets a template specified by the given name.
+     *
+     * @param name the given name
+     * @return template
+     * @throws Exception exception
+     */
+    public static Template getTemplate(final String name) throws Exception {
+        return TEMPLATES.getTemplate(name);
     }
 
     /**
      * Private constructor.
      */
-    private Skins() {
+    private Templates() {
     }
 }

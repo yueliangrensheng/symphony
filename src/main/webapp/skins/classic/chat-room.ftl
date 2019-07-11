@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -25,7 +25,6 @@
         <meta name="description" content="${chatRoomLabel}"/>
         </@head>
         <link rel="stylesheet" href="${staticServePath}/css/index.css?${staticResourceVersion}" />
-        <link rel="stylesheet" href="${staticServePath}/js/lib/editor/codemirror.min.css?${staticResourceVersion}">
         <link rel="canonical" href="${servePath}/community">
     </head>
     <body>
@@ -35,10 +34,10 @@
                 <div class="content chat-room">
                     <div class="module">
                         <h2 class="sub-head">${chatRoomLabel}</h2>
-                        <div class="form fn-content">
+                        <div class="fn-content">
                             <div class="reply">
                                 <#if isLoggedIn>
-                                <textarea id="chatContent" rows="10" placeholder="Say sth...."></textarea>
+                                <div id="chatContent"></div><br>
                                 <div class="fn-clear comment-submit">
                                     <div class="fn-left online-cnt">${onlineVisitorCountLabel} <span id="onlineCnt"></span></div>
                                     <div class="tip fn-left" id="chatContentTip"></div>
@@ -71,7 +70,7 @@
                                              • ${msg.time}
                                         </span>
                                     </div>
-                                    <div class="content-reset comment">
+                                    <div class="vditor-reset comment">
                                         ${msg.content}
                                     </div>
                                 </div>
@@ -89,10 +88,6 @@
         <script>
             Label.uploadLabel = "${uploadLabel}";
         </script>
-        <script src="${staticServePath}/js/lib/editor/codemirror.min.js?${staticResourceVersion}"></script>
-        <script src="${staticServePath}/js/lib/editor/editor.js?${staticResourceVersion}"></script>
-        <script src="${staticServePath}/js/lib/highlight/highlight.pack.js"></script>
-        <script src="${staticServePath}/js/lib/jquery/file-upload-9.10.1/jquery.fileupload.min.js"></script>
         <script src="${staticServePath}/js/channel${miniPostfix}.js?${staticResourceVersion}"></script>
         <script src="${staticServePath}/js/chat-room${miniPostfix}.js?${staticResourceVersion}"></script>
         <script>
@@ -113,17 +108,6 @@
             // Init [ChatRoom] channel
             ChatRoomChannel.init("${wsScheme}://${serverHost}:${serverPort}${contextPath}/chat-room-channel");
             var chatRoomMsgCnt = ${chatRoomMsgCnt};
-            Util.uploadFile({
-                "type": "img",
-                "id": "fileUpload",
-                "pasteZone": $(".CodeMirror"),
-                "editor": ChatRoom.editor,
-                "qiniuUploadToken": "${qiniuUploadToken}",
-                "uploadingLabel": "${uploadingLabel}",
-                "qiniuDomain": "${qiniuDomain}",
-                "imgMaxSize": ${imgMaxSize?c},
-                "fileMaxSize": ${fileMaxSize?c}
-            });
         </script>
     </body>
 </html>

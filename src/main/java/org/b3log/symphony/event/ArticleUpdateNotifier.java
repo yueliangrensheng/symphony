@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -26,10 +26,7 @@ import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.User;
 import org.b3log.latke.service.LangPropsService;
-import org.b3log.symphony.model.Article;
-import org.b3log.symphony.model.Notification;
-import org.b3log.symphony.model.Permission;
-import org.b3log.symphony.model.UserExt;
+import org.b3log.symphony.model.*;
 import org.b3log.symphony.repository.NotificationRepository;
 import org.b3log.symphony.service.FollowQueryService;
 import org.b3log.symphony.service.NotificationMgmtService;
@@ -45,7 +42,7 @@ import java.util.Set;
  * Sends article update related notifications.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.4, Nov 17, 2018
+ * @version 1.0.0.6, Apr 9, 2019
  * @since 2.0.0
  */
 @Singleton
@@ -98,15 +95,15 @@ public class ArticleUpdateNotifier extends AbstractEventListener<JSONObject> {
         LOGGER.log(Level.TRACE, "Processing an event [type={0}, data={1}]", event.getType(), data);
 
         try {
-            final JSONObject originalArticle = data.getJSONObject(Article.ARTICLE);
-            final String articleId = originalArticle.optString(Keys.OBJECT_ID);
+            final JSONObject articleUpdated = data.getJSONObject(Article.ARTICLE);
+            final String articleId = articleUpdated.optString(Keys.OBJECT_ID);
 
-            final String articleAuthorId = originalArticle.optString(Article.ARTICLE_AUTHOR_ID);
+            final String articleAuthorId = articleUpdated.optString(Article.ARTICLE_AUTHOR_ID);
             final JSONObject articleAuthor = userQueryService.getUser(articleAuthorId);
             final String articleAuthorName = articleAuthor.optString(User.USER_NAME);
-            final boolean isDiscussion = originalArticle.optInt(Article.ARTICLE_TYPE) == Article.ARTICLE_TYPE_C_DISCUSSION;
+            final boolean isDiscussion = articleUpdated.optInt(Article.ARTICLE_TYPE) == Article.ARTICLE_TYPE_C_DISCUSSION;
 
-            final String articleContent = originalArticle.optString(Article.ARTICLE_CONTENT);
+            final String articleContent = articleUpdated.optString(Article.ARTICLE_CONTENT);
             final Set<String> atUserNames = userQueryService.getUserNames(articleContent);
             atUserNames.remove(articleAuthorName); // Do not notify the author itself
 
@@ -130,25 +127,31 @@ public class ArticleUpdateNotifier extends AbstractEventListener<JSONObject> {
                 }
             }
 
+            final JSONObject oldArticle = data.optJSONObject(Common.OLD_ARTICLE);
+            if (!Article.isDifferent(oldArticle, articleUpdated)) {
+                // 更新帖子通知改进 https://github.com/b3log/symphony/issues/872
+                LOGGER.log(Level.DEBUG, "The article [title=" + oldArticle.optString(Article.ARTICLE_TITLE) + "] has not changed, do not notify it's watchers");
+
+                return;
+            }
+
             // 'following - article update' Notification
-            final JSONObject followerUsersResult =
-                    followQueryService.getArticleWatchers(UserExt.USER_AVATAR_VIEW_MODE_C_ORIGINAL,
-                            articleId, 1, Integer.MAX_VALUE);
+            final boolean articleNotifyFollowers = data.optBoolean(Article.ARTICLE_T_NOTIFY_FOLLOWERS);
+            if (articleNotifyFollowers) {
+                final JSONObject followerUsersResult = followQueryService.getArticleWatchers(UserExt.USER_AVATAR_VIEW_MODE_C_ORIGINAL, articleId, 1, Integer.MAX_VALUE);
+                final List<JSONObject> watcherUsers = (List<JSONObject>) followerUsersResult.opt(Keys.RESULTS);
+                for (final JSONObject watcherUser : watcherUsers) {
+                    final String watcherName = watcherUser.optString(User.USER_NAME);
+                    if ((isDiscussion && !atUserNames.contains(watcherName)) || articleAuthorName.equals(watcherName)) {
+                        continue;
+                    }
 
-            final List<JSONObject> watcherUsers = (List<JSONObject>) followerUsersResult.opt(Keys.RESULTS);
-            for (final JSONObject watcherUser : watcherUsers) {
-                final String watcherName = watcherUser.optString(User.USER_NAME);
-                if ((isDiscussion && !atUserNames.contains(watcherName)) || articleAuthorName.equals(watcherName)) {
-                    continue;
+                    final JSONObject requestJSONObject = new JSONObject();
+                    final String watcherUserId = watcherUser.optString(Keys.OBJECT_ID);
+                    requestJSONObject.put(Notification.NOTIFICATION_USER_ID, watcherUserId);
+                    requestJSONObject.put(Notification.NOTIFICATION_DATA_ID, articleId);
+                    notificationMgmtService.addFollowingArticleUpdateNotification(requestJSONObject);
                 }
-
-                final JSONObject requestJSONObject = new JSONObject();
-                final String watcherUserId = watcherUser.optString(Keys.OBJECT_ID);
-
-                requestJSONObject.put(Notification.NOTIFICATION_USER_ID, watcherUserId);
-                requestJSONObject.put(Notification.NOTIFICATION_DATA_ID, articleId);
-
-                notificationMgmtService.addFollowingArticleUpdateNotification(requestJSONObject);
             }
         } catch (final Exception e) {
             LOGGER.log(Level.ERROR, "Sends the article update notification failed", e);

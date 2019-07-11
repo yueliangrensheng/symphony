@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -22,6 +22,7 @@ import com.qiniu.storage.UploadManager;
 import com.qiniu.util.Auth;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateUtils;
 import org.b3log.latke.Keys;
@@ -38,6 +39,7 @@ import org.b3log.latke.service.annotation.Service;
 import org.b3log.latke.util.Ids;
 import org.b3log.latke.util.URLs;
 import org.b3log.symphony.model.*;
+import org.b3log.symphony.processor.FileUploadProcessor;
 import org.b3log.symphony.processor.advice.validate.UserRegisterValidation;
 import org.b3log.symphony.repository.*;
 import org.b3log.symphony.util.Geos;
@@ -48,10 +50,7 @@ import org.json.JSONObject;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
-import java.io.ByteArrayOutputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.util.*;
 import java.util.regex.Pattern;
 
@@ -60,7 +59,7 @@ import java.util.regex.Pattern;
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author Bill Ho
- * @version 1.16.0.5, Sep 26, 2018
+ * @version 1.16.0.8, Jun 6, 2019
  * @since 0.2.0
  */
 @Service
@@ -94,6 +93,30 @@ public class UserMgmtService {
      */
     @Inject
     private OptionRepository optionRepository;
+
+    /**
+     * Notification repository.
+     */
+    @Inject
+    private NotificationRepository notificationRepository;
+
+    /**
+     * Liveness repository.
+     */
+    @Inject
+    private LivenessRepository livenessRepository;
+
+    /**
+     * Visit repository.
+     */
+    @Inject
+    private VisitRepository visitRepository;
+
+    /**
+     * Emotion repository.
+     */
+    @Inject
+    private EmotionRepository emotionRepository;
 
     /**
      * Tag repository.
@@ -145,6 +168,7 @@ public class UserMgmtService {
             final String newName = UserExt.ANONYMOUS_USER_NAME + userNo;
             user.put(User.USER_NAME, newName);
             user.put(User.USER_EMAIL, newName + UserExt.USER_BUILTIN_EMAIL_SUFFIX);
+            user.put(User.USER_PASSWORD, DigestUtils.md5Hex(RandomStringUtils.randomAlphanumeric(8)));
             user.put(UserExt.USER_NICKNAME, "");
             user.put(UserExt.USER_TAGS, "");
             user.put(User.USER_URL, "");
@@ -156,8 +180,13 @@ public class UserMgmtService {
             user.put(User.USER_ROLE, Role.ROLE_ID_C_DEFAULT);
             user.put(UserExt.USER_ONLINE_FLAG, false);
             user.put(UserExt.USER_STATUS, UserExt.USER_STATUS_C_DEACTIVATED);
-
             userRepository.update(userId, user);
+
+            notificationRepository.removeByUserId(userId);
+            livenessRepository.removeByUserId(userId);
+            visitRepository.removeByUserId(userId);
+            emotionRepository.removeByUserId(userId);
+
             transaction.commit();
         } catch (final RepositoryException e) {
             if (transaction.isActive()) {
@@ -208,7 +237,7 @@ public class UserMgmtService {
             user.put(UserExt.USER_ONLINE_FLAG, onlineFlag);
             user.put(UserExt.USER_LATEST_LOGIN_TIME, now);
             user.put(UserExt.USER_UPDATE_TIME, now);
-            userRepository.update(userId, user);
+            userRepository.update(userId, user, UserExt.USER_COUNTRY, UserExt.USER_PROVINCE, UserExt.USER_CITY, UserExt.USER_LATEST_LOGIN_IP, UserExt.USER_ONLINE_FLAG, UserExt.USER_LATEST_LOGIN_TIME, UserExt.USER_UPDATE_TIME);
         } catch (final RepositoryException e) {
             LOGGER.log(Level.ERROR, "Updates user online status failed [id=" + userId + ", ip=" + ip + ", flag=" + onlineFlag + "]", e);
         }
@@ -292,7 +321,7 @@ public class UserMgmtService {
             // Update
             oldUser.put(User.USER_PASSWORD, requestJSONObject.optString(User.USER_PASSWORD));
 
-            userRepository.update(oldUserId, oldUser);
+            userRepository.update(oldUserId, oldUser, User.USER_PASSWORD);
             transaction.commit();
         } catch (final RepositoryException e) {
             if (transaction.isActive()) {
@@ -389,11 +418,11 @@ public class UserMgmtService {
             user.put(UserExt.USER_CURRENT_CHECKIN_STREAK, 0);
             user.put(UserExt.USER_POINT, 0);
             user.put(UserExt.USER_USED_POINT, 0);
-            user.put(UserExt.USER_JOIN_POINT_RANK, UserExt.USER_JOIN_POINT_RANK_C_JOIN);
-            user.put(UserExt.USER_JOIN_USED_POINT_RANK, UserExt.USER_JOIN_USED_POINT_RANK_C_JOIN);
+            user.put(UserExt.USER_JOIN_POINT_RANK, UserExt.USER_JOIN_XXX_C_JOIN);
+            user.put(UserExt.USER_JOIN_USED_POINT_RANK, UserExt.USER_JOIN_XXX_C_JOIN);
             user.put(UserExt.USER_TAGS, "");
-            user.put(UserExt.USER_SKIN, Symphonys.get("skinDirName"));
-            user.put(UserExt.USER_MOBILE_SKIN, Symphonys.get("mobileSkinDirName"));
+            user.put(UserExt.USER_SKIN, Symphonys.SKIN_DIR_NAME);
+            user.put(UserExt.USER_MOBILE_SKIN, Symphonys.MOBILE_SKIN_DIR_NAME);
             user.put(UserExt.USER_COUNTRY, "");
             user.put(UserExt.USER_PROVINCE, "");
             user.put(UserExt.USER_CITY, "");
@@ -415,7 +444,7 @@ public class UserMgmtService {
             user.put(UserExt.USER_UA_STATUS, UserExt.USER_XXX_STATUS_C_PUBLIC);
             user.put(UserExt.USER_NOTIFY_STATUS, UserExt.USER_XXX_STATUS_C_ENABLED);
             user.put(UserExt.USER_SUB_MAIL_STATUS, UserExt.USER_XXX_STATUS_C_ENABLED);
-            user.put(UserExt.USER_LIST_PAGE_SIZE, Symphonys.getInt("indexArticlesCnt"));
+            user.put(UserExt.USER_LIST_PAGE_SIZE, Symphonys.ARTICLE_LIST_CNT);
             user.put(UserExt.USER_LIST_VIEW_MODE, UserExt.USER_LIST_VIEW_MODE_TITLE);
             user.put(UserExt.USER_AVATAR_VIEW_MODE, UserExt.USER_AVATAR_VIEW_MODE_C_ORIGINAL);
             user.put(UserExt.USER_SUB_MAIL_SEND_TIME, System.currentTimeMillis());
@@ -439,8 +468,8 @@ public class UserMgmtService {
                 user.put(UserExt.USER_NO, userNo);
 
                 if (!AvatarQueryService.DEFAULT_AVATAR_URL.equals(avatarURL)) { // generate/upload avatar succ
-                    if (Symphonys.getBoolean("qiniu.enabled")) {
-                        user.put(UserExt.USER_AVATAR_URL, Symphonys.get("qiniu.domain") + "/avatar/" + ret + "?"
+                    if (Symphonys.QN_ENABLED) {
+                        user.put(UserExt.USER_AVATAR_URL, Symphonys.UPLOAD_QINIU_DOMAIN + "/avatar/" + ret + "?"
                                 + new Date().getTime());
                     } else {
                         user.put(UserExt.USER_AVATAR_URL, avatarURL + "?" + new Date().getTime());
@@ -477,16 +506,18 @@ public class UserMgmtService {
                             baos.close();
                         }
 
-                        if (Symphonys.getBoolean("qiniu.enabled")) {
-                            final Auth auth = Auth.create(Symphonys.get("qiniu.accessKey"), Symphonys.get("qiniu.secretKey"));
+                        if (Symphonys.QN_ENABLED) {
+                            final Auth auth = Auth.create(Symphonys.UPLOAD_QINIU_AK, Symphonys.UPLOAD_QINIU_SK);
                             final UploadManager uploadManager = new UploadManager(new Configuration());
 
-                            uploadManager.put(avatarData, "avatar/" + ret, auth.uploadToken(Symphonys.get("qiniu.bucket")),
+                            uploadManager.put(avatarData, "avatar/" + ret, auth.uploadToken(Symphonys.UPLOAD_QINIU_BUCKET),
                                     null, "image/jpeg", false);
-                            user.put(UserExt.USER_AVATAR_URL, Symphonys.get("qiniu.domain") + "/avatar/" + ret + "?" + new Date().getTime());
+                            user.put(UserExt.USER_AVATAR_URL, Symphonys.UPLOAD_QINIU_DOMAIN + "/avatar/" + ret + "?" + new Date().getTime());
                         } else {
-                            final String fileName = UUID.randomUUID().toString().replaceAll("-", "") + ".jpg";
-                            try (final OutputStream output = new FileOutputStream(Symphonys.get("upload.dir") + fileName)) {
+                            String fileName = UUID.randomUUID().toString().replaceAll("-", "") + ".jpg";
+                            fileName = FileUploadProcessor.genFilePath(fileName);
+                            new File(Symphonys.UPLOAD_LOCAL_DIR + fileName).getParentFile().mkdirs();
+                            try (final OutputStream output = new FileOutputStream(Symphonys.UPLOAD_LOCAL_DIR + fileName)) {
                                 IOUtils.write(avatarData, output);
                             }
 
@@ -513,7 +544,6 @@ public class UserMgmtService {
             transaction.commit();
 
             if (UserExt.USER_STATUS_C_VALID == status) {
-                // Point
                 pointtransferMgmtService.transfer(Pointtransfer.ID_C_SYS, ret,
                         Pointtransfer.TRANSFER_TYPE_C_INIT, Pointtransfer.TRANSFER_SUM_C_INIT, ret, System.currentTimeMillis(), "");
 
@@ -560,7 +590,7 @@ public class UserMgmtService {
                 final JSONObject u = new JSONObject();
                 u.put(User.USER_NAME, user.optString(User.USER_NAME));
                 u.put(UserExt.USER_T_NAME_LOWER_CASE, user.optString(User.USER_NAME).toLowerCase());
-                final String avatar = avatarQueryService.getAvatarURLByUser(UserExt.USER_AVATAR_VIEW_MODE_C_STATIC, user, "20");
+                final String avatar = avatarQueryService.getAvatarURLByUser(user, "20");
                 u.put(UserExt.USER_AVATAR_URL, avatar);
                 UserQueryService.USER_NAMES.add(u);
                 Collections.sort(UserQueryService.USER_NAMES, (u1, u2) -> {
@@ -657,7 +687,7 @@ public class UserMgmtService {
                 throw new ServiceException(langPropsService.get("duplicatedEmailLabel") + " [" + newEmail + "]");
             }
 
-            userRepository.update(userId, user);
+            userRepository.update(userId, user, User.USER_EMAIL);
 
             transaction.commit();
         } catch (final RepositoryException e) {
@@ -691,7 +721,7 @@ public class UserMgmtService {
                 throw new ServiceException(langPropsService.get("duplicatedUserNameLabel") + " [" + newUserName + "]");
             }
 
-            userRepository.update(userId, user);
+            userRepository.update(userId, user, User.USER_NAME);
 
             transaction.commit();
         } catch (final RepositoryException e) {

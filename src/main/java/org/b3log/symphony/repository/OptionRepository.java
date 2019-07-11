@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -30,7 +30,7 @@ import org.json.JSONObject;
  * Option repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.2.1.0, Jul 16, 2017
+ * @version 1.2.1.1, Jun 6, 2019
  * @since 0.2.0
  */
 @Repository
@@ -74,8 +74,8 @@ public class OptionRepository extends AbstractRepository {
     }
 
     @Override
-    public void update(final String id, final JSONObject option) throws RepositoryException {
-        super.update(id, option);
+    public void update(final String id, final JSONObject option, final String... propertyNames) throws RepositoryException {
+        super.update(id, option, propertyNames);
 
         option.put(Keys.OBJECT_ID, id);
         optionCache.putOption(option);

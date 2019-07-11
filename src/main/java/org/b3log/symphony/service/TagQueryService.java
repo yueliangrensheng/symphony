@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,8 +17,6 @@
  */
 package org.b3log.symphony.service;
 
-import jodd.http.HttpRequest;
-import jodd.http.HttpResponse;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.b3log.latke.Keys;
@@ -39,7 +37,6 @@ import org.b3log.symphony.model.UserExt;
 import org.b3log.symphony.repository.*;
 import org.b3log.symphony.util.Symphonys;
 import org.json.JSONArray;
-import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.*;
@@ -49,7 +46,7 @@ import java.util.stream.Collectors;
  * Tag query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.9.0.4, Oct 7, 2018
+ * @version 1.9.0.6, May 12, 2019
  * @since 0.2.0
  */
 @Service
@@ -248,48 +245,6 @@ public class TagQueryService {
     }
 
     /**
-     * Generates tags for the specified content.
-     *
-     * @param content      the specified content
-     * @param tagFetchSize the specified tag fetch size
-     * @return tags
-     */
-    public List<String> generateTags(final String content, final int tagFetchSize) {
-        final List<String> ret = new ArrayList<>();
-
-        final String token = Symphonys.get("boson.token");
-        if (StringUtils.isBlank(token)) {
-            return ret;
-        }
-
-        try {
-            final HttpResponse response = HttpRequest.post("http://api.bosonnlp.com/keywords/analysis?top_k=" + tagFetchSize).
-                    header("Content-Type", "application/json").
-                    header("Accept", "application/json").
-                    header("X-Token", token).bodyText("\"" + content + "\"").timeout(5000).send();
-            response.charset("UTF-8");
-            final String str = response.bodyText();
-            try {
-                final JSONArray data = new JSONArray(str);
-                for (int i = 0; i < data.length(); i++) {
-                    final String tag = data.getJSONArray(i).optString(1);
-                    if (!StringUtils.isAlphanumericSpace(tag)) {
-                        ret.add(tag);
-                    }
-                }
-            } catch (final JSONException e) {
-                final JSONObject data = new JSONObject(str);
-
-                LOGGER.log(Level.ERROR, "Boson process failed [" + data.toString(4) + "]");
-            }
-        } catch (final Exception e) {
-            LOGGER.log(Level.ERROR, "Generates tags error: " + content, e);
-        }
-
-        return ret;
-    }
-
-    /**
      * Determines whether the specified tag title is reserved.
      *
      * @param tagTitle the specified tag title
@@ -408,7 +363,7 @@ public class TagQueryService {
      */
     public List<JSONObject> getTrendTags(final int fetchSize) {
         final Query query = new Query().addSort(Tag.TAG_REFERENCE_CNT, SortDirection.DESCENDING).
-                setCurrentPageNum(1).setPageSize(fetchSize).setPageCount(1);
+                setPage(1, fetchSize).setPageCount(1);
 
         try {
             final JSONObject result = tagRepository.get(query);
@@ -443,7 +398,7 @@ public class TagQueryService {
      */
     public List<JSONObject> getColdTags(final int fetchSize) {
         final Query query = new Query().addSort(Tag.TAG_REFERENCE_CNT, SortDirection.ASCENDING).
-                setCurrentPageNum(1).setPageSize(fetchSize).setPageCount(1);
+                setPage(1, fetchSize).setPageCount(1);
 
         try {
             final JSONObject result = tagRepository.get(query);
@@ -474,8 +429,7 @@ public class TagQueryService {
     /**
      * Gets the creator of the specified tag of the given tag id.
      *
-     * @param avatarViewMode the specified avatar view mode
-     * @param tagId          the given tag id
+     * @param tagId the given tag id
      * @return tag creator, for example,      <pre>
      * {
      *     "tagCreatorThumbnailURL": "",
@@ -484,7 +438,7 @@ public class TagQueryService {
      * }
      * </pre>, returns {@code null} if not found
      */
-    public JSONObject getCreator(final int avatarViewMode, final String tagId) {
+    public JSONObject getCreator(final String tagId) {
         final List<Filter> filters = new ArrayList<>();
         filters.add(new PropertyFilter(Tag.TAG + '_' + Keys.OBJECT_ID, FilterOperator.EQUAL, tagId));
 
@@ -494,7 +448,7 @@ public class TagQueryService {
 
         filters.add(new CompositeFilter(CompositeFilterOperator.OR, orFilters));
 
-        final Query query = new Query().setCurrentPageNum(1).setPageSize(1).setPageCount(1).
+        final Query query = new Query().setPage(1, 1).setPageCount(1).
                 setFilter(new CompositeFilter(CompositeFilterOperator.AND, filters)).
                 addSort(Keys.OBJECT_ID, SortDirection.ASCENDING);
 
@@ -520,7 +474,7 @@ public class TagQueryService {
 
             final JSONObject creator = userRepository.get(creatorId);
 
-            final String thumbnailURL = avatarQueryService.getAvatarURLByUser(avatarViewMode, creator, "48");
+            final String thumbnailURL = avatarQueryService.getAvatarURLByUser(creator, "48");
             ret.put(Tag.TAG_T_CREATOR_THUMBNAIL_URL, thumbnailURL);
             ret.put(Tag.TAG_T_CREATOR_NAME, creator.optString(User.USER_NAME));
 
@@ -535,9 +489,8 @@ public class TagQueryService {
     /**
      * Gets the participants (article ref) of the specified tag of the given tag id.
      *
-     * @param avatarViewMode the specified avatar view mode
-     * @param tagId          the given tag id
-     * @param fetchSize      the specified fetch size
+     * @param tagId     the given tag id
+     * @param fetchSize the specified fetch size
      * @return tag participants, for example,      <pre>
      * [
      *     {
@@ -548,13 +501,12 @@ public class TagQueryService {
      * ]
      * </pre>, returns an empty list if not found
      */
-    public List<JSONObject> getParticipants(final int avatarViewMode,
-                                            final String tagId, final int fetchSize) {
+    public List<JSONObject> getParticipants(final String tagId, final int fetchSize) {
         final List<Filter> filters = new ArrayList<>();
         filters.add(new PropertyFilter(Tag.TAG + '_' + Keys.OBJECT_ID, FilterOperator.EQUAL, tagId));
         filters.add(new PropertyFilter(Common.TYPE, FilterOperator.EQUAL, 1));
 
-        Query query = new Query().setCurrentPageNum(1).setPageSize(fetchSize).setPageCount(1).
+        Query query = new Query().setPage(1, fetchSize).setPageCount(1).
                 setFilter(new CompositeFilter(CompositeFilterOperator.AND, filters));
 
         final List<JSONObject> ret = new ArrayList<>();
@@ -577,7 +529,7 @@ public class TagQueryService {
 
                 participant.put(Tag.TAG_T_PARTICIPANT_NAME, user.optString(User.USER_NAME));
 
-                final String thumbnailURL = avatarQueryService.getAvatarURLByUser(avatarViewMode, user, "48");
+                final String thumbnailURL = avatarQueryService.getAvatarURLByUser(user, "48");
                 participant.put(Tag.TAG_T_PARTICIPANT_THUMBNAIL_URL, thumbnailURL);
                 participant.put(Tag.TAG_T_PARTICIPANT_THUMBNAIL_UPDATE_TIME, user.optLong(UserExt.USER_UPDATE_TIME));
 
@@ -682,16 +634,15 @@ public class TagQueryService {
      * </pre>
      * @see Pagination
      */
-    public JSONObject getTags(final JSONObject requestJSONObject, final Map<String, Class<?>> tagFields) {
+    public JSONObject getTags(final JSONObject requestJSONObject, final List<String> tagFields) {
         final JSONObject ret = new JSONObject();
 
         final int currentPageNum = requestJSONObject.optInt(Pagination.PAGINATION_CURRENT_PAGE_NUM);
         final int pageSize = requestJSONObject.optInt(Pagination.PAGINATION_PAGE_SIZE);
         final int windowSize = requestJSONObject.optInt(Pagination.PAGINATION_WINDOW_SIZE);
-        final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize).
-                addSort(Keys.OBJECT_ID, SortDirection.DESCENDING);
-        for (final Map.Entry<String, Class<?>> tagField : tagFields.entrySet()) {
-            query.addProjection(tagField.getKey(), tagField.getValue());
+        final Query query = new Query().setPage(currentPageNum, pageSize).addSort(Keys.OBJECT_ID, SortDirection.DESCENDING);
+        for (final String tagField : tagFields) {
+            query.select(tagField);
         }
 
         if (requestJSONObject.has(Tag.TAG_TITLE)) {

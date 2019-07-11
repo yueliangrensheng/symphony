@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -46,7 +46,7 @@ import java.util.concurrent.TimeUnit;
  * Comment management service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 2.12.2.5, Dec 16, 2018
+ * @version 2.12.2.7, May 12, 2019
  * @since 0.2.0
  */
 @Service
@@ -142,15 +142,14 @@ public class CommentQueryService {
     /**
      * Gets the offered (accepted) comment of an article specified by the given article id.
      *
-     * @param avatarViewMode  the specified avatar view mode
      * @param commentViewMode the specified comment view mode
      * @param articleId       the given article id
      * @return accepted comment, return {@code null} if not found
      */
-    public JSONObject getOfferedComment(final int avatarViewMode, final int commentViewMode, final String articleId) {
+    public JSONObject getOfferedComment(final int commentViewMode, final String articleId) {
         Stopwatchs.start("Gets accepted comment");
         try {
-            final Query query = new Query().addSort(Comment.COMMENT_SCORE, SortDirection.DESCENDING).setCurrentPageNum(1).setPageCount(1)
+            final Query query = new Query().addSort(Comment.COMMENT_SCORE, SortDirection.DESCENDING).setPage(1, 1).setPageCount(1)
                     .setFilter(CompositeFilterOperator.and(
                             new PropertyFilter(Comment.COMMENT_ON_ARTICLE_ID, FilterOperator.EQUAL, articleId),
                             new PropertyFilter(Comment.COMMENT_QNA_OFFERED, FilterOperator.EQUAL, Comment.COMMENT_QNA_OFFERED_C_YES),
@@ -163,9 +162,9 @@ public class CommentQueryService {
                 }
 
                 final JSONObject ret = comments.get(0);
-                organizeComment(avatarViewMode, ret);
+                organizeComment(ret);
 
-                final int pageSize = Symphonys.getInt("articleCommentsPageSize");
+                final int pageSize = Symphonys.ARTICLE_COMMENTS_CNT;
                 ret.put(Pagination.PAGINATION_CURRENT_PAGE_NUM, getCommentPage(
                         articleId, ret.optString(Keys.OBJECT_ID), commentViewMode, pageSize));
 
@@ -190,8 +189,7 @@ public class CommentQueryService {
      * @return page number, return {@code 1} if occurs exception
      */
     public int getCommentPage(final String articleId, final String commentId, final int sortMode, final int pageSize) {
-        final Query numQuery = new Query()
-                .setPageSize(Integer.MAX_VALUE).setCurrentPageNum(1).setPageCount(1);
+        final Query numQuery = new Query().setPage(1, Integer.MAX_VALUE).setPageCount(1);
 
         switch (sortMode) {
             case UserExt.USER_COMMENT_VIEW_MODE_C_TRADITIONAL:
@@ -227,18 +225,17 @@ public class CommentQueryService {
      * Gets original comment of a comment specified by the given comment id.
      *
      * @param currentUserId   the specified current user id, may be null
-     * @param avatarViewMode  the specified avatar view mode
      * @param commentViewMode the specified comment view mode
      * @param commentId       the given comment id
      * @return original comment, return {@code null} if not found
      */
-    public JSONObject getOriginalComment(final String currentUserId, final int avatarViewMode, final int commentViewMode, final String commentId) {
+    public JSONObject getOriginalComment(final String currentUserId, final int commentViewMode, final String commentId) {
         try {
             final JSONObject comment = commentRepository.get(commentId);
 
-            organizeComment(avatarViewMode, comment);
+            organizeComment(comment);
 
-            final int pageSize = Symphonys.getInt("articleCommentsPageSize");
+            final int pageSize = Symphonys.ARTICLE_COMMENTS_CNT;
 
             final JSONObject ret = new JSONObject();
 
@@ -283,15 +280,14 @@ public class CommentQueryService {
      * Gets replies of a comment specified by the given comment id.
      *
      * @param currentUserId   the specified current user id, may be null
-     * @param avatarViewMode  the specified avatar view mode
      * @param commentViewMode the specified comment view mode
      * @param commentId       the given comment id
      * @return a list of replies, return an empty list if not found
      */
-    public List<JSONObject> getReplies(final String currentUserId, final int avatarViewMode, final int commentViewMode, final String commentId) {
+    public List<JSONObject> getReplies(final String currentUserId, final int commentViewMode, final String commentId) {
         final Query query = new Query().addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).
-                setPageSize(Integer.MAX_VALUE).setCurrentPageNum(1).setPageCount(1)
-                .setFilter(CompositeFilterOperator.and(
+                setPage(1, Integer.MAX_VALUE).setPageCount(1).
+                setFilter(CompositeFilterOperator.and(
                         new PropertyFilter(Comment.COMMENT_ORIGINAL_COMMENT_ID, FilterOperator.EQUAL, commentId),
                         new PropertyFilter(Comment.COMMENT_STATUS, FilterOperator.EQUAL, Comment.COMMENT_STATUS_C_VALID)
                 ));
@@ -299,9 +295,9 @@ public class CommentQueryService {
             final List<JSONObject> comments = CollectionUtils.jsonArrayToList(
                     commentRepository.get(query).optJSONArray(Keys.RESULTS));
 
-            organizeComments(avatarViewMode, comments);
+            organizeComments(comments);
 
-            final int pageSize = Symphonys.getInt("articleCommentsPageSize");
+            final int pageSize = Symphonys.ARTICLE_COMMENTS_CNT;
 
             final List<JSONObject> ret = new ArrayList<>();
             for (final JSONObject comment : comments) {
@@ -350,19 +346,18 @@ public class CommentQueryService {
     /**
      * Gets nice comments of an article specified by the given article id.
      *
-     * @param avatarViewMode  the specified avatar view mode
      * @param commentViewMode the specified comment view mode
      * @param articleId       the given article id
      * @param fetchSize       the specified fetch size
      * @return a list of nice comments, return an empty list if not found
      */
-    public List<JSONObject> getNiceComments(final int avatarViewMode, final int commentViewMode,
+    public List<JSONObject> getNiceComments(final int commentViewMode,
                                             final String articleId, final int fetchSize) {
         Stopwatchs.start("Gets nice comments");
         try {
             final Query query = new Query().addSort(Comment.COMMENT_SCORE, SortDirection.DESCENDING).
-                    setPageSize(fetchSize).setCurrentPageNum(1).setPageCount(1)
-                    .setFilter(CompositeFilterOperator.and(
+                    setPage(1, fetchSize).setPageCount(1).
+                    setFilter(CompositeFilterOperator.and(
                             new PropertyFilter(Comment.COMMENT_ON_ARTICLE_ID, FilterOperator.EQUAL, articleId),
                             new PropertyFilter(Comment.COMMENT_SCORE, FilterOperator.GREATER_THAN, 0D),
                             new PropertyFilter(Comment.COMMENT_STATUS, FilterOperator.EQUAL, Comment.COMMENT_STATUS_C_VALID)
@@ -371,9 +366,9 @@ public class CommentQueryService {
                 final List<JSONObject> ret = CollectionUtils.jsonArrayToList(
                         commentRepository.get(query).optJSONArray(Keys.RESULTS));
 
-                organizeComments(avatarViewMode, ret);
+                organizeComments(ret);
 
-                final int pageSize = Symphonys.getInt("articleCommentsPageSize");
+                final int pageSize = Symphonys.ARTICLE_COMMENTS_CNT;
 
                 for (final JSONObject comment : ret) {
                     comment.put(Pagination.PAGINATION_CURRENT_PAGE_NUM, getCommentPage(
@@ -445,13 +440,12 @@ public class CommentQueryService {
     }
 
     /**
-     * Gets a comment with {@link #organizeComment(int, JSONObject)} by the specified comment id.
+     * Gets a comment with {@link #organizeComment(JSONObject)} by the specified comment id.
      *
-     * @param avatarViewMode the specified avatar view mode
-     * @param commentId      the specified comment id
+     * @param commentId the specified comment id
      * @return comment, returns {@code null} if not found
      */
-    public JSONObject getCommentById(final int avatarViewMode, final String commentId) {
+    public JSONObject getCommentById(final String commentId) {
 
         try {
             final JSONObject ret = commentRepository.get(commentId);
@@ -459,7 +453,7 @@ public class CommentQueryService {
                 return null;
             }
 
-            organizeComment(avatarViewMode, ret);
+            organizeComment(ret);
 
             return ret;
         } catch (final RepositoryException e) {
@@ -493,7 +487,6 @@ public class CommentQueryService {
     /**
      * Gets the user comments with the specified user id, page number and page size.
      *
-     * @param avatarViewMode the specified avatar view mode
      * @param userId         the specified user id
      * @param anonymous      the specified comment anonymous
      * @param currentPageNum the specified page number
@@ -501,14 +494,14 @@ public class CommentQueryService {
      * @param viewer         the specified viewer, may be {@code null}
      * @return user comments, return an empty list if not found
      */
-    public List<JSONObject> getUserComments(final int avatarViewMode, final String userId, final int anonymous,
+    public List<JSONObject> getUserComments(final String userId, final int anonymous,
                                             final int currentPageNum, final int pageSize, final JSONObject viewer) {
-        final Query query = new Query().addSort(Comment.COMMENT_CREATE_TIME, SortDirection.DESCENDING)
-                .setCurrentPageNum(currentPageNum).setPageSize(pageSize).
-                        setFilter(CompositeFilterOperator.and(
-                                new PropertyFilter(Comment.COMMENT_AUTHOR_ID, FilterOperator.EQUAL, userId),
-                                new PropertyFilter(Comment.COMMENT_ANONYMOUS, FilterOperator.EQUAL, anonymous)
-                        ));
+        final Query query = new Query().addSort(Comment.COMMENT_CREATE_TIME, SortDirection.DESCENDING).
+                setPage(currentPageNum, pageSize).
+                setFilter(CompositeFilterOperator.and(
+                        new PropertyFilter(Comment.COMMENT_AUTHOR_ID, FilterOperator.EQUAL, userId),
+                        new PropertyFilter(Comment.COMMENT_ANONYMOUS, FilterOperator.EQUAL, anonymous),
+                        new PropertyFilter(Comment.COMMENT_STATUS, FilterOperator.EQUAL, Comment.COMMENT_STATUS_C_VALID)));
         try {
             final JSONObject result = commentRepository.get(query);
             final List<JSONObject> ret = CollectionUtils.jsonArrayToList(result.optJSONArray(Keys.RESULTS));
@@ -552,8 +545,7 @@ public class CommentQueryService {
                 if (Article.ARTICLE_ANONYMOUS_C_PUBLIC == article.optInt(Article.ARTICLE_ANONYMOUS)) {
                     comment.put(Comment.COMMENT_T_ARTICLE_AUTHOR_NAME, articleAuthorName);
                     comment.put(Comment.COMMENT_T_ARTICLE_AUTHOR_URL, "/member/" + articleAuthor.optString(User.USER_NAME));
-                    final String articleAuthorThumbnailURL = avatarQueryService.getAvatarURLByUser(
-                            avatarViewMode, articleAuthor, "48");
+                    final String articleAuthorThumbnailURL = avatarQueryService.getAvatarURLByUser(articleAuthor, "48");
                     comment.put(Comment.COMMENT_T_ARTICLE_AUTHOR_THUMBNAIL_URL, articleAuthorThumbnailURL);
                 } else {
                     comment.put(Comment.COMMENT_T_ARTICLE_AUTHOR_NAME, UserExt.ANONYMOUS_USER_NAME);
@@ -563,7 +555,7 @@ public class CommentQueryService {
 
                 final String commentId = comment.optString(Keys.OBJECT_ID);
                 final int cmtViewMode = UserExt.USER_COMMENT_VIEW_MODE_C_TRADITIONAL;
-                final int cmtPage = getCommentPage(articleId, commentId, cmtViewMode, Symphonys.getInt("articleCommentsPageSize"));
+                final int cmtPage = getCommentPage(articleId, commentId, cmtViewMode, Symphonys.ARTICLE_COMMENTS_CNT);
                 comment.put(Comment.COMMENT_SHARP_URL, "/article/" + articleId + "?p=" + cmtPage + "&m=" + cmtViewMode + "#" + commentId);
 
                 if (Article.ARTICLE_TYPE_C_DISCUSSION == article.optInt(Article.ARTICLE_TYPE)
@@ -619,20 +611,17 @@ public class CommentQueryService {
     /**
      * Gets the article comments with the specified article id, page number and page size.
      *
-     * @param avatarViewMode the specified avatar view mode
      * @param articleId      the specified article id
      * @param currentPageNum the specified page number
      * @param pageSize       the specified page size
      * @param sortMode       the specified sort mode (traditional: 0, real time: 1)
      * @return comments, return an empty list if not found
      */
-    public List<JSONObject> getArticleComments(final int avatarViewMode,
-                                               final String articleId, final int currentPageNum, final int pageSize, final int sortMode) {
+    public List<JSONObject> getArticleComments(final String articleId, final int currentPageNum, final int pageSize, final int sortMode) {
         Stopwatchs.start("Get comments");
 
-        final Query query = new Query()
-                .setPageCount(1).setCurrentPageNum(currentPageNum).setPageSize(pageSize)
-                .setFilter(new PropertyFilter(Comment.COMMENT_ON_ARTICLE_ID, FilterOperator.EQUAL, articleId));
+        final Query query = new Query().setPageCount(1).setPage(currentPageNum, pageSize).
+                setFilter(new PropertyFilter(Comment.COMMENT_ON_ARTICLE_ID, FilterOperator.EQUAL, articleId));
 
         if (UserExt.USER_COMMENT_VIEW_MODE_C_REALTIME == sortMode) {
             query.addSort(Keys.OBJECT_ID, SortDirection.DESCENDING);
@@ -650,7 +639,7 @@ public class CommentQueryService {
             }
             final List<JSONObject> ret = CollectionUtils.jsonArrayToList(result.optJSONArray(Keys.RESULTS));
 
-            organizeComments(avatarViewMode, ret);
+            organizeComments(ret);
 
             Stopwatchs.start("Revision, paging, original");
             try {
@@ -676,7 +665,7 @@ public class CommentQueryService {
                     // Fill original comment
                     final JSONObject originalCmt = commentRepository.get(originalCmtId);
                     if (null != originalCmt) {
-                        organizeComment(avatarViewMode, originalCmt);
+                        organizeComment(originalCmt);
                         comment.put(Comment.COMMENT_T_ORIGINAL_AUTHOR_THUMBNAIL_URL,
                                 originalCmt.optString(Comment.COMMENT_T_AUTHOR_THUMBNAIL_URL));
                     } else {
@@ -700,7 +689,6 @@ public class CommentQueryService {
     /**
      * Gets comments by the specified request json object.
      *
-     * @param avatarViewMode    the specified avatar view mode
      * @param requestJSONObject the specified request json object, for example,
      *                          "paginationCurrentPageNum": 1,
      *                          "paginationPageSize": 20,
@@ -724,16 +712,16 @@ public class CommentQueryService {
      * @see Pagination
      */
 
-    public JSONObject getComments(final int avatarViewMode, final JSONObject requestJSONObject, final Map<String, Class<?>> commentFields) {
+    public JSONObject getComments(final JSONObject requestJSONObject, final List<String> commentFields) {
         final JSONObject ret = new JSONObject();
 
         final int currentPageNum = requestJSONObject.optInt(Pagination.PAGINATION_CURRENT_PAGE_NUM);
         final int pageSize = requestJSONObject.optInt(Pagination.PAGINATION_PAGE_SIZE);
         final int windowSize = requestJSONObject.optInt(Pagination.PAGINATION_WINDOW_SIZE);
-        final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize)
-                .addSort(Comment.COMMENT_CREATE_TIME, SortDirection.DESCENDING);
-        for (final Map.Entry<String, Class<?>> commentField : commentFields.entrySet()) {
-            query.addProjection(commentField.getKey(), commentField.getValue());
+        final Query query = new Query().setPage(currentPageNum, pageSize).
+                addSort(Comment.COMMENT_CREATE_TIME, SortDirection.DESCENDING);
+        for (final String commentField : commentFields) {
+            query.select(commentField);
         }
 
         JSONObject result;
@@ -758,7 +746,7 @@ public class CommentQueryService {
 
         try {
             for (final JSONObject comment : comments) {
-                organizeComment(avatarViewMode, comment);
+                organizeComment(comment);
 
                 final String articleId = comment.optString(Comment.COMMENT_ON_ARTICLE_ID);
                 final JSONObject article = articleRepository.get(articleId);
@@ -783,11 +771,10 @@ public class CommentQueryService {
     /**
      * Organizes the specified comments.
      *
-     * @param avatarViewMode the specified avatar view mode
-     * @param comments       the specified comments
-     * @see #organizeComment(int, JSONObject)
+     * @param comments the specified comments
+     * @see #organizeComment(JSONObject)
      */
-    private void organizeComments(final int avatarViewMode, final List<JSONObject> comments) {
+    private void organizeComments(final List<JSONObject> comments) {
         if (comments.isEmpty()) {
             return;
         }
@@ -797,7 +784,7 @@ public class CommentQueryService {
             final ForkJoinPool pool = new ForkJoinPool(Symphonys.PROCESSORS);
             pool.submit(() -> comments.parallelStream().forEach(comment -> {
                 try {
-                    organizeComment(avatarViewMode, comment);
+                    organizeComment(comment);
                 } catch (final Exception e) {
                     LOGGER.log(Level.ERROR, "Organizes comment [" + comment.optString(Keys.OBJECT_ID) + "] failed", e);
                 } finally {
@@ -829,11 +816,10 @@ public class CommentQueryService {
      * <li>anonymous process</li>
      * </ul>
      *
-     * @param avatarViewMode the specified avatar view mode
-     * @param comment        the specified comment
+     * @param comment the specified comment
      * @throws RepositoryException repository exception
      */
-    private void organizeComment(final int avatarViewMode, final JSONObject comment) throws RepositoryException {
+    private void organizeComment(final JSONObject comment) throws RepositoryException {
         Stopwatchs.start("Organize comment");
 
         try {
@@ -849,7 +835,7 @@ public class CommentQueryService {
             if (Comment.COMMENT_ANONYMOUS_C_PUBLIC == comment.optInt(Comment.COMMENT_ANONYMOUS)) {
                 comment.put(Comment.COMMENT_T_AUTHOR_NAME, author.optString(User.USER_NAME));
                 comment.put(Comment.COMMENT_T_AUTHOR_URL, author.optString(User.USER_URL));
-                final String thumbnailURL = avatarQueryService.getAvatarURLByUser(avatarViewMode, author, "48");
+                final String thumbnailURL = avatarQueryService.getAvatarURLByUser(author, "48");
                 comment.put(Comment.COMMENT_T_AUTHOR_THUMBNAIL_URL, thumbnailURL);
             } else {
                 comment.put(Comment.COMMENT_T_AUTHOR_NAME, UserExt.ANONYMOUS_USER_NAME);

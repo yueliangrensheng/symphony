@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -74,11 +74,10 @@
             </@head>
         </#if>
     <link rel="stylesheet" href="${staticServePath}/css/home.css?${staticResourceVersion}"/>
-    <link rel="stylesheet" href="${staticServePath}/js/lib/highlight/styles/github.css">
 </head>
-<body>
+<body class="fn__flex-column">
         <#include "../header.ftl">
-<div class="main">
+<div class="main fn__flex-1">
     <div class="wrapper">
         <div class="content" id="home-pjax-container">
                     <#if pjax><!---- pjax {#home-pjax-container} start ----></#if>

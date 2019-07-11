@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -28,17 +28,16 @@ import org.b3log.latke.servlet.RequestContext;
 import org.b3log.latke.servlet.advice.ProcessAdvice;
 import org.b3log.latke.servlet.advice.RequestProcessAdviceException;
 import org.b3log.latke.util.Strings;
-import org.b3log.symphony.model.Common;
 import org.b3log.symphony.model.Role;
 import org.b3log.symphony.model.Tag;
 import org.b3log.symphony.model.UserExt;
+import org.b3log.symphony.util.Sessions;
 import org.b3log.symphony.util.Symphonys;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
-import java.util.Map;
 
 /**
  * Validates for user profiles update.
@@ -151,7 +150,7 @@ public class UpdateProfilesValidation extends ProcessAdvice {
                     throw new RequestProcessAdviceException(new JSONObject().put(Keys.MSG, tagErrMsg));
                 }
 
-                final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+                final JSONObject currentUser = Sessions.getUser();
                 if (!Role.ROLE_ID_C_ADMIN.equals(currentUser.optString(User.USER_ROLE))
                         && ArrayUtils.contains(Symphonys.RESERVED_TAGS, tagTitle)) {
                     throw new RequestProcessAdviceException(new JSONObject().put(Keys.MSG,

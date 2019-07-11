@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -20,7 +20,6 @@ package org.b3log.symphony.processor.advice.validate;
 import org.apache.commons.lang.StringUtils;
 import org.b3log.latke.Keys;
 import org.b3log.latke.ioc.BeanManager;
-import org.b3log.latke.ioc.Inject;
 import org.b3log.latke.ioc.Singleton;
 import org.b3log.latke.service.LangPropsService;
 import org.b3log.latke.servlet.RequestContext;
@@ -28,7 +27,6 @@ import org.b3log.latke.servlet.advice.ProcessAdvice;
 import org.b3log.latke.servlet.advice.RequestProcessAdviceException;
 import org.b3log.symphony.model.Article;
 import org.b3log.symphony.model.Comment;
-import org.b3log.symphony.model.UserExt;
 import org.b3log.symphony.service.ArticleQueryService;
 import org.b3log.symphony.service.CommentQueryService;
 import org.b3log.symphony.service.OptionQueryService;
@@ -36,42 +34,24 @@ import org.b3log.symphony.util.StatusCodes;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletRequest;
-import java.util.Map;
 
 /**
  * Validates for comment adding locally.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.0.2, Mar 9, 2017
+ * @version 1.3.0.4, Apr 7, 2019
  * @since 0.2.0
  */
 @Singleton
 public class CommentAddValidation extends ProcessAdvice {
 
-    /**
-     * Max comment content length.
-     */
-    public static final int MAX_COMMENT_CONTENT_LENGTH = 2000;
-    /**
-     * Language service.
-     */
-    @Inject
-    private LangPropsService langPropsService;
-    /**
-     * Comment query service.
-     */
-    @Inject
-    private CommentQueryService commentQueryService;
-    /**
-     * Article query service.
-     */
-    @Inject
-    private ArticleQueryService articleQueryService;
-    /**
-     * Option query service.
-     */
-    @Inject
-    private OptionQueryService optionQueryService;
+    @Override
+    public void doAdvice(final RequestContext context) throws RequestProcessAdviceException {
+        final HttpServletRequest request = context.getRequest();
+        final JSONObject requestJSONObject = context.requestJSON();
+        request.setAttribute(Keys.REQUEST, requestJSONObject);
+        validateCommentFields(requestJSONObject);
+    }
 
     /**
      * Validates comment fields.
@@ -90,7 +70,7 @@ public class CommentAddValidation extends ProcessAdvice {
         exception.put(Keys.STATUS_CODE, StatusCodes.ERR);
 
         final String commentContent = StringUtils.trim(requestJSONObject.optString(Comment.COMMENT_CONTENT));
-        if (StringUtils.isBlank(commentContent) || commentContent.length() > MAX_COMMENT_CONTENT_LENGTH) {
+        if (StringUtils.isBlank(commentContent) || commentContent.length() > Comment.MAX_COMMENT_CONTENT_LENGTH) {
             throw new RequestProcessAdviceException(exception.put(Keys.MSG, langPropsService.get("commentErrorLabel")));
         }
 
@@ -103,7 +83,7 @@ public class CommentAddValidation extends ProcessAdvice {
             throw new RequestProcessAdviceException(exception.put(Keys.MSG, langPropsService.get("commentArticleErrorLabel")));
         }
 
-        final JSONObject article = articleQueryService.getArticleById(UserExt.USER_AVATAR_VIEW_MODE_C_ORIGINAL, articleId);
+        final JSONObject article = articleQueryService.getArticleById(articleId);
         if (null == article) {
             throw new RequestProcessAdviceException(exception.put(Keys.MSG, langPropsService.get("commentArticleErrorLabel")));
         }
@@ -119,21 +99,5 @@ public class CommentAddValidation extends ProcessAdvice {
                 throw new RequestProcessAdviceException(exception.put(Keys.MSG, langPropsService.get("commentArticleErrorLabel")));
             }
         }
-    }
-
-    @Override
-    public void doAdvice(final RequestContext context) throws RequestProcessAdviceException {
-        final HttpServletRequest request = context.getRequest();
-
-        JSONObject requestJSONObject;
-        try {
-            requestJSONObject = context.requestJSON();
-            request.setAttribute(Keys.REQUEST, requestJSONObject);
-        } catch (final Exception e) {
-            throw new RequestProcessAdviceException(new JSONObject().put(Keys.MSG, e.getMessage()).
-                    put(Keys.STATUS_CODE, StatusCodes.ERR));
-        }
-
-        validateCommentFields(requestJSONObject);
     }
 }

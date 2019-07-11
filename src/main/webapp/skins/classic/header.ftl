@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -58,7 +58,7 @@
     </div>
     <#if esEnabled || algoliaEnabled>
     <form class="responsive-hide fn-left" target="_blank" action="/search">
-        <input class="search" placeholder="Search HacPai" type="text" name="key" id="search"
+        <input class="search" placeholder="Search Sym" type="text" name="key" id="search"
                value="<#if key??>${key}</#if>">
         <input type="submit" class="fn-none" value=""/>
     </form>

@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -32,7 +32,7 @@ import org.json.JSONObject;
  * Comment repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.1.1, Nov 3, 2018
+ * @version 1.1.1.3, Jun 6, 2019
  * @since 0.2.0
  */
 @Repository
@@ -98,7 +98,11 @@ public class CommentRepository extends AbstractRepository {
 
         final String commentAuthorId = comment.optString(Comment.COMMENT_AUTHOR_ID);
         final JSONObject commenter = userRepository.get(commentAuthorId);
-        commenter.put(UserExt.USER_COMMENT_COUNT, commenter.optInt(UserExt.USER_COMMENT_COUNT) - 1);
+        int commentCount = commenter.optInt(UserExt.USER_COMMENT_COUNT) - 1;
+        if (0 > commentCount) {
+            commentCount = 0;
+        }
+        commenter.put(UserExt.USER_COMMENT_COUNT, commentCount);
         userRepository.update(commentAuthorId, commenter);
 
         final String articleId = comment.optString(Comment.COMMENT_ON_ARTICLE_ID);
@@ -107,7 +111,8 @@ public class CommentRepository extends AbstractRepository {
         if (0 < article.optInt(Article.ARTICLE_COMMENT_CNT)) {
             final Query latestCmtQuery = new Query().
                     setFilter(new PropertyFilter(Comment.COMMENT_ON_ARTICLE_ID, FilterOperator.EQUAL, articleId)).
-                    addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).setCurrentPageNum(1).setPageSize(1);
+                    addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).
+                    setPage(1, 1);
             final JSONObject latestCmt = get(latestCmtQuery).optJSONArray(Keys.RESULTS).optJSONObject(0);
             article.put(Article.ARTICLE_LATEST_CMT_TIME, latestCmt.optLong(Keys.OBJECT_ID));
             final JSONObject latestCmtAuthor = userRepository.get(latestCmt.optString(Comment.COMMENT_AUTHOR_ID));
@@ -170,8 +175,8 @@ public class CommentRepository extends AbstractRepository {
     }
 
     @Override
-    public void update(final String id, final JSONObject comment) throws RepositoryException {
-        super.update(id, comment);
+    public void update(final String id, final JSONObject comment, final String... propertyNames) throws RepositoryException {
+        super.update(id, comment, propertyNames);
 
         comment.put(Keys.OBJECT_ID, id);
         commentCache.putComment(comment);

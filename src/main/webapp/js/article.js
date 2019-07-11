@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -20,7 +20,7 @@
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.42.1.0, Aug 28, 2018
+ * @version 1.43.0.1, Mar 17, 2019
  */
 
 /**
@@ -43,8 +43,8 @@ var Comment = {
       data: JSON.stringify({
         reportDataId: $('#reportDialog').data('id'),
         reportDataType: $('#reportDialog').data('type'),
-        reportType: $('input[name=report]:checked').val( ),
-        reportMemo: $('#reportTextarea').val()
+        reportType: $('input[name=report]:checked').val(),
+        reportMemo: $('#reportTextarea').val(),
       }),
       complete: function (result) {
         $btn.removeAttr('disabled').css('opacity', '1')
@@ -230,7 +230,9 @@ var Comment = {
       css('margin-bottom', $('.editor-panel > .wrapper').outerHeight() + 'px')
     $('#replyUseName').
       html('<a href="javascript:void(0)" onclick="Comment._bgFade($(\'.article-content\'))" class="ft-a-title"><svg><use xlink:href="#reply-to"></use></svg>'
-        + $('.article-title').text().replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</a>').
+        +
+        $('.article-title').text().replace(/</g, '&lt;').replace(/>/g, '&gt;') +
+        '</a>').
       removeData()
 
     // 如果 hide 初始化， focus 无效
@@ -438,6 +440,7 @@ var Comment = {
       titleSuffix: '',
       callback: function () {
         Util.parseMarkdown()
+        Util.parseHljs()
       },
     })
     NProgress.configure({showSpinner: false})
@@ -451,134 +454,26 @@ var Comment = {
     if (!Label.isLoggedIn || !document.getElementById('commentContent')) {
       return false
     }
-
-    Util.initCodeMirror()
-
-    var commentEditor = new Editor({
-      element: document.getElementById('commentContent'),
-      dragDrop: false,
-      lineWrapping: true,
-      htmlURL: Label.servePath + '/markdown',
-      toolbar: [
-        {name: 'emoji'},
-        {name: 'bold'},
-        {name: 'italic'},
-        {name: 'quote'},
-        {name: 'link'},
-        {
-          name: 'image',
-          html: '<div class="tooltipped tooltipped-n" aria-label="' +
-          Label.uploadFileLabel +
-          '" ><form id="fileUpload" method="POST" enctype="multipart/form-data"><label class="icon-upload"><svg><use xlink:href="#upload"></use></svg><input type="file"/></label></form></div>',
-        },
-        {name: 'unordered-list'},
-        {name: 'ordered-list'},
-        {name: 'view'},
-        {name: 'fullscreen'},
-        {name: 'question', action: 'https://hacpai.com/guide/markdown'},
-      ],
-      extraKeys: {
-        'Alt-/': 'autocompleteUserName',
-        'Cmd-/': 'autocompleteEmoji',
-        'Ctrl-/': 'autocompleteEmoji',
-        'Alt-S': 'startAudioRecord',
-        'Alt-R': 'endAudioRecord',
-        'Esc': function () {
-          $('.editor-hide').click()
-        },
+    Comment.editor = Util.newVditor({
+      id: 'commentContent',
+      cache: true,
+      preview: {
+        show: false,
       },
-      status: false,
-    })
-    commentEditor.render()
-
-    commentEditor.codemirror['for'] = 'comment'
-
-    Comment.editor = commentEditor.codemirror
-
-    if (window.localStorage && window.localStorage[Label.articleOId]) {
-      var localData = null
-
-      try {
-        localData = JSON.parse(window.localStorage[Label.articleOId])
-      } catch (e) {
-        var emptyContent = {
-          commentContent: '',
-        }
-
-        window.localStorage[Label.articleOId] = JSON.stringify(emptyContent)
-        localData = JSON.parse(window.localStorage[Label.articleOId])
-      }
-
-      if ('' !== localData.commentContent.replace(/(^\s*)|(\s*$)/g, '')) {
-        Comment.editor.setValue(localData.commentContent)
-      }
-    }
-
-    Comment.editor.on('changes', function (cm) {
-      $('#addCommentTip').removeClass('error succ').html('')
-
-      if (window.localStorage) {
-        window.localStorage[Label.articleOId] = JSON.stringify({
-          commentContent: cm.getValue(),
-        })
-      }
-
-      var cursor = cm.getCursor()
-      var token = cm.getTokenAt(cursor)
-
-      if (token.string.indexOf('@') === 0) {
-        cm.showHint({hint: CodeMirror.hint.userName, completeSingle: false})
-        return
-      }
-
-      if ($('.editor-preview-active').length === 0) {
-        return false
-      }
-
-      $.ajax({
-        url: Label.servePath + '/markdown',
-        type: 'POST',
-        cache: false,
-        data: {
-          markdownText: cm.getValue(),
-        },
-        success: function (result, textStatus) {
-          $('.article-comment-content .editor-preview-active').
-            html(result.html)
-          hljs.initHighlighting.called = false
-          hljs.initHighlighting()
-          Util.parseMarkdown()
-        },
-      })
-    })
-
-    Comment.editor.on('keypress', function (cm, evt) {
-      if (evt.ctrlKey && 10 === evt.charCode) {
-        Comment.add(Label.articleOId, Label.csrfToken)
-        return false
-      }
-    })
-
-    Comment.editor.on('keydown', function (cm, evt) {
-      // mac command + enter add article
-      $.ua.set(navigator.userAgent)
-      if ($.ua.os.name.indexOf('Mac OS') > -1 && evt.metaKey && evt.keyCode ===
-        13) {
-        Comment.add(Label.articleOId, Label.csrfToken)
-        return false
-      }
-      if (8 === evt.keyCode) {
-        var cursor = cm.getCursor()
-        var token = cm.getTokenAt(cursor)
-
-        // delete the whole emoji
-        var preCursor = CodeMirror.Pos(cursor.line, cursor.ch)
-        token = cm.getTokenAt(preCursor)
-        if (/^:\S+:$/.test(token.string)) {
-          cm.replaceRange('', CodeMirror.Pos(cursor.line, token.start),
-            CodeMirror.Pos(cursor.line, token.end - 1))
-        }
-      }
+      resize: {
+        enable: true,
+        position: 'top',
+      },
+      height: 160,
+      counter: 4096,
+      placeholder: Label.commentEditorPlaceholderLabel,
+      ctrlEnter: function () {
+        Comment.add(Label.articleOId, Label.csrfToken,
+          document.getElementById('articleCommentBtn'))
+      },
+      esc: function () {
+        $('.editor-hide').click()
+      },
     })
   },
   /**
@@ -761,11 +656,12 @@ var Comment = {
             data.paginationCurrentPageNum
             + '&m=' + Label.userCommentViewMode + '#' + data.oId
             +
-            '\')"><svg><use xlink:href="#quote"></use></svg></a></div><div class="content-reset comment">'
+            '\')"><svg><use xlink:href="#quote"></use></svg></a></div><div class="vditor-reset comment">'
             + data.commentContent + '</div></div></div></li>'
         }
         $commentReplies.html('<ul>' + template + '</ul>')
-        Article.parseLanguage()
+        Util.parseHljs()
+        Util.parseMarkdown()
 
         // 如果是回帖的回复需要处理下样式
         $(it).
@@ -790,19 +686,6 @@ var Comment = {
    * @param {BOM} it targetElement
    */
   add: function (id, csrfToken, it) {
-    if (!Validate.goValidate({
-      target: $('#addCommentTip'),
-      data: [
-        {
-          'target': Comment.editor,
-          'type': 'editor',
-          'max': 2000,
-          'msg': Label.commentErrorLabel,
-        }],
-    })) {
-      return false
-    }
-
     var requestJSONObject = {
       articleId: id,
       commentAnonymous: $('#commentAnonymous').prop('checked'),
@@ -832,7 +715,6 @@ var Comment = {
       data: JSON.stringify(requestJSONObject),
       beforeSend: function () {
         $(it).attr('disabled', 'disabled').css('opacity', '0.3')
-        Comment.editor.setOption('readOnly', 'nocursor')
       },
       success: function (result, textStatus) {
         $(it).removeAttr('disabled').css('opacity', '1')
@@ -840,7 +722,7 @@ var Comment = {
         if (0 === result.sc) {
           // edit cmt
           if (commentId) {
-            $('#' + commentId + ' > .fn-flex > .fn-flex-1 > .content-reset').
+            $('#' + commentId + ' > .fn-flex > .fn-flex-1 > .vditor-reset').
               html(result.commentContent)
             $('#' + commentId + ' .icon-history').parent().show()
           }
@@ -851,26 +733,12 @@ var Comment = {
 
           // reset comment editor
           Comment.editor.setValue('')
-          $('.editor-preview').html('')
-          if ($('.icon-view').parent().hasClass('active')) {
-            $('.icon-view').click()
-          }
 
           // hide comment panel
           $('.editor-hide').click()
 
           // clear reply comment
           $('#replyUseName').text('').removeData()
-
-          // clear local storage
-          if (window.localStorage) {
-            var emptyContent = {
-              commentContent: '',
-            }
-
-            window.localStorage[Label.articleOId] = JSON.stringify(
-              emptyContent)
-          }
 
           // 定为到回贴位置
           if (Label.userCommentViewMode === 1) {
@@ -892,7 +760,6 @@ var Comment = {
       },
       complete: function () {
         $(it).removeAttr('disabled').css('opacity', '1')
-        Comment.editor.setOption('readOnly', false)
       },
     })
   },
@@ -953,7 +820,7 @@ var Article = {
         mode: 'circulation',
         music: {
           title: $it.data('title'),
-          author: '<a href="https://hacpai.com/article/1464416402922" target="_blank">音乐分享</a>',
+          author: '<a href="' + Label.servePath + '/about" target="_blank">音乐分享</a>',
           url: $it.data('url'),
           pic: Label.staticServePath + '/images/music.png',
         },
@@ -975,7 +842,7 @@ var Article = {
       preload: 'none',
       music: {
         title: '语音预览',
-        author: '<a href="https://hacpai.com/member/v" target="_blank">小薇</a>',
+        author: '<a href="' + Label.servePath + '/about" target="_blank">小薇</a>',
         url: $articleAudio.data('url'),
         pic: Label.staticServePath + '/images/blank.png',
       },
@@ -1118,11 +985,12 @@ var Article = {
   init: function () {
     this.initToc()
     this.share()
-    this.parseLanguage()
+    Util.parseHljs()
+    Util.parseMarkdown()
 
     // img preview
     var fixDblclick = null
-    $('.article').on('dblclick', '.content-reset img', function () {
+    $('.article').on('dblclick', '.vditor-reset img', function () {
       clearTimeout(fixDblclick)
       if ($(this).hasClass('emoji') ||
         $(this).closest('.editor-panel').length === 1 ||
@@ -1130,7 +998,7 @@ var Article = {
         return
       }
       window.open($(this).attr('src'))
-    }).on('click', '.content-reset img', function (event) {
+    }).on('click', '.vditor-reset img', function (event) {
       clearTimeout(fixDblclick)
       if ($(this).hasClass('emoji') ||
         $(this).closest('.editor-panel').length === 1 ||
@@ -1486,18 +1354,6 @@ var Article = {
         $('#shareClipboard').attr('aria-label', Label.copiedLabel)
       })
   },
-  /*
-   * @description 解析语法高亮
-   */
-  parseLanguage: function () {
-    if (Label.markedAvailable) {
-      return
-    }
-    $('pre code').each(function (i, block) {
-      $(this).css('max-height', $(window).height() - 68)
-      hljs.highlightBlock(block)
-    })
-  },
   /**
    * @description 打赏
    */
@@ -1511,9 +1367,10 @@ var Article = {
         cache: false,
         success: function (result, textStatus) {
           if (result.sc) {
-            $('#articleRewardContent .content-reset').
+            $('#articleRewardContent .vditor-reset').
               html(result.articleRewardContent)
-            Article.parseLanguage()
+            Util.parseHljs()
+            Util.parseMarkdown()
 
             var $rewarcCnt = $('#articleRewardContent > span'),
               cnt = parseInt($rewarcCnt.text())
@@ -1619,12 +1476,20 @@ var Article = {
    * @param {string} articleContent 记录过程
    */
   playThought: function (articleContent) {
-    // - 0x1E: Record Separator (记录分隔符)
-    // + 0x1F: Unit Separator (单元分隔符)
+    // + 0x1F: Unit Separator (单元分隔符) 31
+    var UNIT_SEPARATOR = String.fromCharCode(31)
+    // - 0x1E: Record Separator (记录分隔符) 30
+    var RECORD_SEPARATOR = String.fromCharCode(30)
+    var GROUP_SEPARATOR = String.fromCharCode(29)
+    var NEWLINE = String.fromCharCode(10)
+    var DELETE = String.fromCharCode(24)
 
-    var fast = 2
+    var $thoughtLine = $('#thoughtProgress > span')
+    var $thoughtIcon = $('#thoughtProgress > svg')
+    var thoughtContent = '#articleThought'
+
     var genThought = function (record, articleLinesList) {
-      var units = record.split('')
+      var units = record.split(UNIT_SEPARATOR)
       if (units.length === 3) {
         units.splice(0, 0, '')
       }
@@ -1636,7 +1501,7 @@ var Article = {
       to[0] = parseInt(to[0])    // to.ch
       to[1] = parseInt(to[1])    // to.line
 
-      if (srcLinesContent === '') {
+      if (srcLinesContent === DELETE) {
         // remove
         var removeLines = []
         for (var n = from[1], m = 0; n <= to[1], n <
@@ -1660,92 +1525,103 @@ var Article = {
           articleLinesList.splice(removeLines[o] - o, 1)
         }
       } else {
-        var addLines = srcLinesContent.split(String.fromCharCode(29))[0],
-          removedLines = srcLinesContent.split(String.fromCharCode(29))[1]
+        var addLines = srcLinesContent.split(GROUP_SEPARATOR)[0],
+          removedLines = srcLinesContent.split(GROUP_SEPARATOR)[1]
 
         if (removedLines === '') {
           articleLinesList[from[1]] = articleLinesList[from[1]].substring(0,
             from[0]) +
             articleLinesList[to[1]].substr(to[0])
+          // Note: for b3log editor
+          articleLinesList.splice(from[1] + 1, to[1] - from[1])
         }
 
-        articleLinesList[from[1]] = articleLinesList[from[1]].substring(0,
-          from[0]) + addLines
-          + articleLinesList[from[1]].substr(from[0])
+        if (typeof articleLinesList[from[1]] !== 'undefined') {
+          articleLinesList[from[1]] = articleLinesList[from[1]].substring(0,
+            from[0]) + addLines
+            + articleLinesList[from[1]].substr(from[0])
+        } else {
+          articleLinesList[from[1]] = ''
+        }
       }
       return articleLinesList
     }
 
-    var records = articleContent.split('')
+    var records = articleContent.split(RECORD_SEPARATOR)
+    var STEP = 20 // 间隔速度
+    var SPEED = Math.max(records[records.length - 2].split(UNIT_SEPARATOR)[1] / 30000, 2)
 
     // 分隔符后的''删除
     if (records[records.length - 1] === '') {
       records.pop()
     }
+
     for (var i = 0, j = 0; i < records.length; i++) {
       setTimeout(function () {
-        if (!$('.article-content').data('text')) {
-          $('.article-content').data('text', '')
+        if (!$(thoughtContent).data('text')) {
+          $(thoughtContent).data('text', '')
         }
 
         var articleLinesList = genThought(records[j++],
-          $('.article-content').data('text').split(String.fromCharCode(10)))
+          $(thoughtContent).data('text').split(NEWLINE))
 
-        var articleText = articleLinesList.join(String.fromCharCode(10))
+        var articleText = articleLinesList.join(NEWLINE)
         var articleHTML = articleText.replace(/\n/g, '<br>').
           replace(/ /g, '&nbsp;').
           replace(/	/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
 
-        $('.article-content').data('text', articleText).html(articleHTML)
+        $(thoughtContent).data('text', articleText).html(articleHTML)
 
-      }, parseInt(records[i].split('')[1]) / fast)
+      }, parseInt(records[i].split(UNIT_SEPARATOR)[1]) / SPEED)
     }
 
     // progress
-    var currentTime = 0,
-      step = 20, // 间隔速度
-      amountTime = parseInt(records[i - 1].split('')[1]) / fast + step * 6
+    var currentTime = 0
+    var amountTime = parseInt(records[i - 1].split(UNIT_SEPARATOR)[1]) / SPEED
     var interval = setInterval(function () {
       if (currentTime >= amountTime) {
-        $('#thoughtProgress .bar').width('100%')
-        $('#thoughtProgress .icon-video').css('left', '100%')
+        $thoughtLine.width('100%')
+        $thoughtIcon.css('left', '100%')
         clearInterval(interval)
       } else {
-        currentTime += step
-        $('#thoughtProgress .icon-video').
-          css('left', (currentTime * 100 / amountTime) + '%')
-        $('#thoughtProgress .bar').
-          width((currentTime * 100 / amountTime) + '%')
+        currentTime += STEP
+        $thoughtIcon.css('left', (currentTime * 100 / amountTime) + '%')
+        $thoughtLine.width((currentTime * 100 / amountTime) + '%')
       }
-
-    }, step)
+    }, STEP)
 
     // preview
+    var previewText = ''
+    var articleHTML = ''
+    var maxHeight = 0
     for (var v = 0, k = 0; v < records.length; v++) {
       var articleLinesList = genThought(records[k++],
-        $('#thoughtProgressPreview').
-          data('text').
-          split(String.fromCharCode(10)))
+        previewText.split(NEWLINE))
 
-      var articleText = articleLinesList.join(String.fromCharCode(10))
-      var articleHTML = articleText.replace(/\n/g, '<br>').
+      var articleText = articleLinesList.join(NEWLINE)
+      articleHTML = articleText.replace(/\n/g, '<br>').
         replace(/ /g, '&nbsp;').
         replace(/	/g, '&nbsp;&nbsp;&nbsp;&nbsp;')
 
-      $('#thoughtProgressPreview').data('text', articleText).html(articleHTML)
+      previewText = articleText
+      $(thoughtContent).html(articleHTML)
+      maxHeight = Math.max(maxHeight, $(thoughtContent).height())
     }
+
+    $('#thoughtProgressPreview').html('<div class="vditor-reset">' + articleHTML + '</div>')
+
     $('#thoughtProgressPreview').dialog({
       'modal': true,
       'hideFooter': true,
     })
-    $('#thoughtProgress .icon-video').click(function () {
+    $thoughtIcon.click(function () {
       $('#thoughtProgressPreview').dialog('open')
     })
 
     // set default height
-    $('.article-content').
-      html(articleHTML).
-      height($('.article-content').height()).
+    $(thoughtContent).html(articleHTML).
+      height(maxHeight).
+      css('margin-bottom', '15px').
       html('')
   },
   /**
@@ -1893,18 +1769,6 @@ Article.init()
 
 $(document).ready(function () {
   Comment.init()
-  // jQuery File Upload
-  Util.uploadFile({
-    'type': 'img',
-    'id': 'fileUpload',
-    'pasteZone': $('.CodeMirror'),
-    'qiniuUploadToken': Label.qiniuUploadToken,
-    'editor': Comment.editor,
-    'uploadingLabel': Label.uploadingLabel,
-    'qiniuDomain': Label.qiniuDomain,
-    'imgMaxSize': Label.imgMaxSize,
-    'fileMaxSize': Label.fileMaxSize,
-  })
 
   // Init [Article] channel
   ArticleChannel.init(Label.articleChannel)

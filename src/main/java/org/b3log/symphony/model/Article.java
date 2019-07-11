@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,11 +17,15 @@
  */
 package org.b3log.symphony.model;
 
+import org.apache.commons.lang.StringUtils;
+import org.json.JSONObject;
+
 /**
  * This class defines all article model relevant keys.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.33.0.0, Dec 16, 2018
+ * @author <a href="https://qiankunpingtai.cn">qiankunpingtai</a>
+ * @version 1.34.0.3, May 20, 2019
  * @since 0.2.0
  */
 public final class Article {
@@ -377,6 +381,16 @@ public final class Article {
      */
     public static final String ARTICLE_T_ORIGINAL_CONTENT = "articleOriginalContent";
 
+    /**
+     * Key of flag of notifying followers.
+     */
+    public static final String ARTICLE_T_NOTIFY_FOLLOWERS = "articleNotifyFollowers";
+
+    /**
+     * Key of article show in list. https://github.com/b3log/symphony/issues/927
+     */
+    public static final String ARTICLE_SHOW_IN_LIST = "articleShowInList";
+
     // Anonymous constants
     /**
      * Article anonymous - public.
@@ -457,10 +471,44 @@ public final class Article {
      */
     public static final int ARTICLE_TYPE_C_QNA = 5;
 
+    // Show in list constants
     /**
-     * Private constructor.
+     * Article show in list - not.
      */
-    private Article() {
+    public static final Integer ARTICLE_SHOW_IN_LIST_C_NOT = 0;
+
+    /**
+     * Article show in list - yes.
+     */
+    public static final Integer ARTICLE_SHOW_IN_LIST_C_YES = 1;
+
+    /**
+     * Checks the specified article1 is different from the specified article2.
+     *
+     * @param a1 the specified article1
+     * @param a2 the specified article2
+     * @return {@code true} if they are different, otherwise returns {@code false}
+     */
+    public static boolean isDifferent(final JSONObject a1, final JSONObject a2) {
+        final String title1 = a1.optString(Article.ARTICLE_TITLE);
+        final String title2 = a2.optString(Article.ARTICLE_TITLE);
+        if (!StringUtils.equalsIgnoreCase(title1, title2)) {
+            return true;
+        }
+
+        final String tags1 = a1.optString(Article.ARTICLE_TAGS);
+        final String tags2 = a2.optString(Article.ARTICLE_TAGS);
+        if (!StringUtils.equalsIgnoreCase(tags1, tags2)) {
+            return true;
+        }
+
+        final String content1 = a1.optString(Article.ARTICLE_CONTENT);
+        final String content2 = a2.optString(Article.ARTICLE_CONTENT);
+        if (!StringUtils.equalsIgnoreCase(content1, content2)) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -471,5 +519,11 @@ public final class Article {
      */
     public static boolean isInvalidArticleType(final int articleType) {
         return articleType < 0 || articleType > Article.ARTICLE_TYPE_C_QNA;
+    }
+
+    /**
+     * Private constructor.
+     */
+    private Article() {
     }
 }

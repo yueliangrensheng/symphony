@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -54,7 +54,7 @@
                         </div>
                         <canvas id="charCanvas" width="500" height="490"></canvas>
                         <#if !noCharacter??>
-                        <div class="content-reset">
+                        <div class="vditor-reset">
                             <ul>
                                 <li>${userCharacterProgressLabel}${colonLabel}${userProgress}</li>
                                 <li>${totalCharacterProgressLabel}${colonLabel}${totalProgress}</li>

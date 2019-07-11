@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -43,7 +43,7 @@ import java.util.List;
  * Tag management service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.1.8, Dec 18, 2018
+ * @version 1.3.1.9, Jun 6, 2019
  * @since 1.1.0
  */
 @Service
@@ -230,7 +230,7 @@ public class TagMgmtService {
             optionRepository.update(Option.ID_C_STATISTIC_TAG_COUNT, tagCntOption);
 
             author.put(UserExt.USER_TAG_COUNT, author.optInt(UserExt.USER_TAG_COUNT) + 1);
-            userRepository.update(userId, author);
+            userRepository.update(userId, author, UserExt.USER_TAG_COUNT);
 
             // User-Tag relation
             final JSONObject userTagRelation = new JSONObject();

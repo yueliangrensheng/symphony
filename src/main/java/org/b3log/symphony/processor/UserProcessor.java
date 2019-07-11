@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -19,6 +19,7 @@ package org.b3log.symphony.processor;
 
 import org.apache.commons.lang.StringUtils;
 import org.b3log.latke.Keys;
+import org.b3log.latke.Latkes;
 import org.b3log.latke.ioc.Inject;
 import org.b3log.latke.logging.Logger;
 import org.b3log.latke.model.Pagination;
@@ -41,8 +42,7 @@ import org.b3log.symphony.processor.advice.UserBlockCheck;
 import org.b3log.symphony.processor.advice.stopwatch.StopwatchEndAdvice;
 import org.b3log.symphony.processor.advice.stopwatch.StopwatchStartAdvice;
 import org.b3log.symphony.service.*;
-import org.b3log.symphony.util.Escapes;
-import org.b3log.symphony.util.Symphonys;
+import org.b3log.symphony.util.*;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletRequest;
@@ -53,21 +53,23 @@ import java.util.*;
  * User processor.
  * <ul>
  * <li>User articles (/member/{userName}), GET</li>
+ * <li>User anonymous articles (/member/{userName}/anonymous</li>
  * <li>User comments (/member/{userName}/comments), GET</li>
+ * <li>User anonymous comments (/member/{userName}/comments/anonymous</li>
  * <li>User following users (/member/{userName}/following/users), GET</li>
  * <li>User following tags (/member/{userName}/following/tags), GET</li>
  * <li>User following articles (/member/{userName}/following/articles), GET</li>
  * <li>User followers (/member/{userName}/followers), GET</li>
  * <li>User points (/member/{userName}/points), GET</li>
  * <li>User breezemoons (/member/{userName}/breezemoons), GET</li>
- * <li>Lists usernames (/users/names), GET</li>
- * <li>Lists emotions (/users/emotions), GET</li>
+ * <li>List usernames (/users/names), GET</li>
+ * <li>List frequent emotions (/users/emotions), GET</li>
  * </ul>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author <a href="http://zephyr.b3log.org">Zephyr</a>
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
- * @version 1.27.0.8, Dec 8, 2018
+ * @version 1.27.1.0, Jul 7, 2019
  * @since 0.2.0
  */
 @RequestProcessor
@@ -185,23 +187,19 @@ public class UserProcessor {
     public void showHomeBreezemoons(final RequestContext context) {
         final String breezemoonId = context.pathVar("breezemoonId");
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/breezemoons.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/breezemoons.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
         final int pageNum = Paginator.getPage(request);
-        final int pageSize = Symphonys.getInt("userHomeBreezemoonsCnt");
-        final int windowSize = Symphonys.getInt("userHomeBreezemoonsWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
         fillHomeUser(dataModel, user, roleQueryService);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
@@ -210,14 +208,14 @@ public class UserProcessor {
         JSONObject currentUser;
         String currentUserId = null;
         if (isLoggedIn) {
-            currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            currentUser = Sessions.getUser();
             currentUserId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(currentUserId, followingId, Follow.FOLLOWING_TYPE_C_USER);
             dataModel.put(Common.IS_FOLLOWING, isFollowing);
         }
 
-        final JSONObject result = breezemoonQueryService.getBreezemoons(avatarViewMode, currentUserId, followingId, pageNum, pageSize, windowSize);
+        final JSONObject result = breezemoonQueryService.getBreezemoons(currentUserId, followingId, pageNum, pageSize, windowSize);
         List<JSONObject> bms = (List<JSONObject>) result.opt(Breezemoon.BREEZEMOONS);
         dataModel.put(Common.USER_HOME_BREEZEMOONS, bms);
 
@@ -246,7 +244,7 @@ public class UserProcessor {
             }
 
             bms = Collections.singletonList(breezemoon);
-            breezemoonQueryService.organizeBreezemoons(avatarViewMode, "admin", bms);
+            breezemoonQueryService.organizeBreezemoons("admin", bms);
             dataModel.put(Common.USER_HOME_BREEZEMOONS, bms);
         } else {
             dataModel.put(Common.IS_SINGLE_BREEZEMOON_URL, false);
@@ -263,21 +261,18 @@ public class UserProcessor {
     @After({PermissionGrant.class, StopwatchEndAdvice.class})
     public void showHomeAnonymousComments(final RequestContext context) {
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/comments.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/comments.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
 
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         JSONObject currentUser = null;
         if (isLoggedIn) {
-            currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            currentUser = Sessions.getUser();
         }
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
         if (null == currentUser || (!currentUser.optString(Keys.OBJECT_ID).equals(user.optString(Keys.OBJECT_ID)))
                 && !Role.ROLE_ID_C_ADMIN.equals(currentUser.optString(User.USER_ROLE))) {
@@ -287,28 +282,25 @@ public class UserProcessor {
         }
 
         final int pageNum = Paginator.getPage(request);
-        final int pageSize = Symphonys.getInt("userHomeCmtsCnt");
-        final int windowSize = Symphonys.getInt("userHomeCmtsWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
         fillHomeUser(dataModel, user, roleQueryService);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
 
         if (isLoggedIn) {
-            currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            currentUser = Sessions.getUser();
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(followerId, followingId, Follow.FOLLOWING_TYPE_C_USER);
             dataModel.put(Common.IS_FOLLOWING, isFollowing);
         }
 
-        final List<JSONObject> userComments = commentQueryService.getUserComments(
-                avatarViewMode, user.optString(Keys.OBJECT_ID), Comment.COMMENT_ANONYMOUS_C_ANONYMOUS,
-                pageNum, pageSize, currentUser);
+        final List<JSONObject> userComments = commentQueryService.getUserComments(user.optString(Keys.OBJECT_ID), Comment.COMMENT_ANONYMOUS_C_ANONYMOUS, pageNum, pageSize, currentUser);
         dataModel.put(Common.USER_HOME_COMMENTS, userComments);
 
         int recordCount = 0;
@@ -344,21 +336,18 @@ public class UserProcessor {
     public void showAnonymousArticles(final RequestContext context) {
         final String userName = context.pathVar("userName");
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/home.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/home.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
 
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         JSONObject currentUser = null;
         if (isLoggedIn) {
-            currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            currentUser = Sessions.getUser();
         }
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
         if (null == currentUser || (!currentUser.optString(Keys.OBJECT_ID).equals(user.optString(Keys.OBJECT_ID)))
                 && !Role.ROLE_ID_C_ADMIN.equals(currentUser.optString(User.USER_ROLE))) {
@@ -373,8 +362,7 @@ public class UserProcessor {
 
         fillHomeUser(dataModel, user, roleQueryService);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
         if (isLoggedIn) {
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
@@ -383,11 +371,10 @@ public class UserProcessor {
             dataModel.put(Common.IS_FOLLOWING, isFollowing);
         }
 
-        final int pageSize = Symphonys.getInt("userHomeArticlesCnt");
-        final int windowSize = Symphonys.getInt("userHomeArticlesWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
-        final List<JSONObject> userArticles = articleQueryService.getUserArticles(avatarViewMode,
-                user.optString(Keys.OBJECT_ID), Article.ARTICLE_ANONYMOUS_C_ANONYMOUS, pageNum, pageSize);
+        final List<JSONObject> userArticles = articleQueryService.getUserArticles(user.optString(Keys.OBJECT_ID), Article.ARTICLE_ANONYMOUS_C_ANONYMOUS, pageNum, pageSize);
         dataModel.put(Common.USER_HOME_ARTICLES, userArticles);
 
         int recordCount = 0;
@@ -425,39 +412,33 @@ public class UserProcessor {
     public void showHome(final RequestContext context) {
         final String userName = context.pathVar("userName");
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
         final int pageNum = Paginator.getPage(request);
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/home.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
 
-        renderer.setTemplateName("home/home.ftl");
-
         fillHomeUser(dataModel, user, roleQueryService);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         if (isLoggedIn) {
-            final JSONObject currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            final JSONObject currentUser = Sessions.getUser();
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(followerId, followingId, Follow.FOLLOWING_TYPE_C_USER);
             dataModel.put(Common.IS_FOLLOWING, isFollowing);
         }
 
-        final int pageSize = Symphonys.getInt("userHomeArticlesCnt");
-        final int windowSize = Symphonys.getInt("userHomeArticlesWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
-        final List<JSONObject> userArticles = articleQueryService.getUserArticles(avatarViewMode,
-                user.optString(Keys.OBJECT_ID), Article.ARTICLE_ANONYMOUS_C_PUBLIC, pageNum, pageSize);
+        final List<JSONObject> userArticles = articleQueryService.getUserArticles(user.optString(Keys.OBJECT_ID), Article.ARTICLE_ANONYMOUS_C_PUBLIC, pageNum, pageSize);
         dataModel.put(Common.USER_HOME_ARTICLES, userArticles);
 
         int recordCount = 0;
@@ -479,7 +460,7 @@ public class UserProcessor {
         dataModel.put(Pagination.PAGINATION_PAGE_NUMS, pageNums);
         dataModel.put(Pagination.PAGINATION_RECORD_COUNT, recordCount);
 
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         if (null == currentUser) {
             dataModel.put(Common.IS_MY_ARTICLE, false);
         } else {
@@ -499,23 +480,19 @@ public class UserProcessor {
     @After({PermissionGrant.class, StopwatchEndAdvice.class})
     public void showHomeComments(final RequestContext context) {
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/comments.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/comments.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
         final int pageNum = Paginator.getPage(request);
-        final int pageSize = Symphonys.getInt("userHomeCmtsCnt");
-        final int windowSize = Symphonys.getInt("userHomeCmtsWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
         fillHomeUser(dataModel, user, roleQueryService);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
@@ -523,15 +500,14 @@ public class UserProcessor {
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         JSONObject currentUser = null;
         if (isLoggedIn) {
-            currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            currentUser = Sessions.getUser();
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(followerId, followingId, Follow.FOLLOWING_TYPE_C_USER);
             dataModel.put(Common.IS_FOLLOWING, isFollowing);
         }
 
-        final List<JSONObject> userComments = commentQueryService.getUserComments(avatarViewMode,
-                user.optString(Keys.OBJECT_ID), Comment.COMMENT_ANONYMOUS_C_PUBLIC, pageNum, pageSize, currentUser);
+        final List<JSONObject> userComments = commentQueryService.getUserComments(user.optString(Keys.OBJECT_ID), Comment.COMMENT_ANONYMOUS_C_PUBLIC, pageNum, pageSize, currentUser);
         dataModel.put(Common.USER_HOME_COMMENTS, userComments);
 
         int recordCount = 0;
@@ -566,35 +542,30 @@ public class UserProcessor {
     @After({PermissionGrant.class, StopwatchEndAdvice.class})
     public void showHomeFollowingUsers(final RequestContext context) {
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/following-users.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/following-users.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
         final int pageNum = Paginator.getPage(request);
-        final int pageSize = Symphonys.getInt("userHomeFollowingUsersCnt");
-        final int windowSize = Symphonys.getInt("userHomeFollowingUsersWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
         fillHomeUser(dataModel, user, roleQueryService);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
-        final JSONObject followingUsersResult = followQueryService.getFollowingUsers(avatarViewMode,
-                followingId, pageNum, pageSize);
+        final JSONObject followingUsersResult = followQueryService.getFollowingUsers(followingId, pageNum, pageSize);
         final List<JSONObject> followingUsers = (List<JSONObject>) followingUsersResult.opt(Keys.RESULTS);
         dataModel.put(Common.USER_HOME_FOLLOWING_USERS, followingUsers);
 
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         if (isLoggedIn) {
-            final JSONObject currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            final JSONObject currentUser = Sessions.getUser();
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(followerId, followingId, Follow.FOLLOWING_TYPE_C_USER);
@@ -634,26 +605,22 @@ public class UserProcessor {
     @After({PermissionGrant.class, StopwatchEndAdvice.class})
     public void showHomeFollowingTags(final RequestContext context) {
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/following-tags.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/following-tags.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
         final int pageNum = Paginator.getPage(request);
-        final int pageSize = Symphonys.getInt("userHomeFollowingTagsCnt");
-        final int windowSize = Symphonys.getInt("userHomeFollowingTagsWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
         fillHomeUser(dataModel, user, roleQueryService);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
         final JSONObject followingTagsResult = followQueryService.getFollowingTags(followingId, pageNum, pageSize);
         final List<JSONObject> followingTags = (List<JSONObject>) followingTagsResult.opt(Keys.RESULTS);
@@ -661,7 +628,7 @@ public class UserProcessor {
 
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         if (isLoggedIn) {
-            final JSONObject currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            final JSONObject currentUser = Sessions.getUser();
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(followerId, followingId, Follow.FOLLOWING_TYPE_C_USER);
@@ -703,33 +670,29 @@ public class UserProcessor {
         final HttpServletRequest request = context.getRequest();
         final HttpServletResponse response = context.getResponse();
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/following-articles.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/following-articles.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
         final int pageNum = Paginator.getPage(request);
-        final int pageSize = Symphonys.getInt("userHomeFollowingArticlesCnt");
-        final int windowSize = Symphonys.getInt("userHomeFollowingArticlesWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
         fillHomeUser(dataModel, user, roleQueryService);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
-        final JSONObject followingArticlesResult = followQueryService.getFollowingArticles(avatarViewMode,
-                followingId, pageNum, pageSize);
+        final JSONObject followingArticlesResult = followQueryService.getFollowingArticles(followingId, pageNum, pageSize);
         final List<JSONObject> followingArticles = (List<JSONObject>) followingArticlesResult.opt(Keys.RESULTS);
         dataModel.put(Common.USER_HOME_FOLLOWING_ARTICLES, followingArticles);
 
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         if (isLoggedIn) {
-            final JSONObject currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            final JSONObject currentUser = Sessions.getUser();
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(followerId, followingId, Follow.FOLLOWING_TYPE_C_USER);
@@ -769,35 +732,30 @@ public class UserProcessor {
     @After({PermissionGrant.class, StopwatchEndAdvice.class})
     public void showHomeWatchingArticles(final RequestContext context) {
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/watching-articles.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/watching-articles.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
         final int pageNum = Paginator.getPage(request);
-        final int pageSize = Symphonys.getInt("userHomeFollowingArticlesCnt");
-        final int windowSize = Symphonys.getInt("userHomeFollowingArticlesWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
         fillHomeUser(dataModel, user, roleQueryService);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
-        final JSONObject followingArticlesResult = followQueryService.getWatchingArticles(avatarViewMode,
-                followingId, pageNum, pageSize);
+        final JSONObject followingArticlesResult = followQueryService.getWatchingArticles(followingId, pageNum, pageSize);
         final List<JSONObject> followingArticles = (List<JSONObject>) followingArticlesResult.opt(Keys.RESULTS);
         dataModel.put(Common.USER_HOME_FOLLOWING_ARTICLES, followingArticles);
 
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         if (isLoggedIn) {
-            final JSONObject currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            final JSONObject currentUser = Sessions.getUser();
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(followerId, followingId, Follow.FOLLOWING_TYPE_C_USER);
@@ -837,36 +795,30 @@ public class UserProcessor {
     @After({PermissionGrant.class, StopwatchEndAdvice.class})
     public void showHomeFollowers(final RequestContext context) {
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/followers.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/followers.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
         final int pageNum = Paginator.getPage(request);
-        final int pageSize = Symphonys.getInt("userHomeFollowersCnt");
-        final int windowSize = Symphonys.getInt("userHomeFollowersWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
         fillHomeUser(dataModel, user, roleQueryService);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-
-        final JSONObject followerUsersResult = followQueryService.getFollowerUsers(avatarViewMode,
-                followingId, pageNum, pageSize);
+        final JSONObject followerUsersResult = followQueryService.getFollowerUsers(followingId, pageNum, pageSize);
         final List<JSONObject> followerUsers = (List) followerUsersResult.opt(Keys.RESULTS);
         dataModel.put(Common.USER_HOME_FOLLOWER_USERS, followerUsers);
 
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         if (isLoggedIn) {
-            final JSONObject currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            final JSONObject currentUser = Sessions.getUser();
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(followerId, followingId, Follow.FOLLOWING_TYPE_C_USER);
@@ -912,23 +864,19 @@ public class UserProcessor {
     @After({PermissionGrant.class, StopwatchEndAdvice.class})
     public void showHomePoints(final RequestContext context) {
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final JSONObject user = (JSONObject) request.getAttribute(User.USER);
+        final JSONObject user = (JSONObject) context.attr(User.USER);
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("home/points.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "home/points.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
         final int pageNum = Paginator.getPage(request);
-        final int pageSize = Symphonys.getInt("userHomePointsCnt");
-        final int windowSize = Symphonys.getInt("userHomePointsWindowSize");
+        final int pageSize = Symphonys.USER_HOME_LIST_CNT;
+        final int windowSize = Symphonys.USER_HOME_LIST_WIN_SIZE;
 
         fillHomeUser(dataModel, user, roleQueryService);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
         final String followingId = user.optString(Keys.OBJECT_ID);
         dataModel.put(Follow.FOLLOWING_ID, followingId);
@@ -940,7 +888,7 @@ public class UserProcessor {
 
         final boolean isLoggedIn = (Boolean) dataModel.get(Common.IS_LOGGED_IN);
         if (isLoggedIn) {
-            final JSONObject currentUser = (JSONObject) dataModel.get(Common.CURRENT_USER);
+            final JSONObject currentUser = Sessions.getUser();
             final String followerId = currentUser.optString(Keys.OBJECT_ID);
 
             final boolean isFollowing = followQueryService.isFollowing(followerId, user.optString(Keys.OBJECT_ID), Follow.FOLLOWING_TYPE_C_USER);
@@ -964,59 +912,70 @@ public class UserProcessor {
     }
 
     /**
-     * Lists usernames.
+     * List usernames.
      *
      * @param context the specified context
      */
-    @RequestProcessing(value = "/users/names", method = HttpMethod.GET)
+    @RequestProcessing(value = "/users/names", method = HttpMethod.POST)
     public void listNames(final RequestContext context) {
-        final HttpServletRequest request = context.getRequest();
+        final JSONObject result = Results.newSucc();
+        context.renderJSON(result);
 
-        context.renderJSON().renderTrueResult();
-
-        final String namePrefix = request.getParameter("name");
+        final JSONObject requestJSON = context.requestJSON();
+        final String namePrefix = requestJSON.optString("name");
         if (StringUtils.isBlank(namePrefix)) {
             final List<JSONObject> admins = userQueryService.getAdmins();
             final List<JSONObject> userNames = new ArrayList<>();
             for (final JSONObject admin : admins) {
                 final JSONObject userName = new JSONObject();
                 userName.put(User.USER_NAME, admin.optString(User.USER_NAME));
-                final String avatar = avatarQueryService.getAvatarURLByUser(UserExt.USER_AVATAR_VIEW_MODE_C_STATIC, admin, "20");
+                final String avatar = avatarQueryService.getAvatarURLByUser(admin, "20");
                 userName.put(UserExt.USER_AVATAR_URL, avatar);
 
                 userNames.add(userName);
             }
 
-            context.renderJSONValue(Common.USER_NAMES, userNames);
+            result.put(Common.DATA, userNames);
 
             return;
         }
 
         final List<JSONObject> userNames = userQueryService.getUserNamesByPrefix(namePrefix);
-        context.renderJSONValue(Common.USER_NAMES, userNames);
+        result.put(Common.DATA, userNames);
     }
 
     /**
-     * Lists emotions.
+     * List frequent emotions.
      *
      * @param context the specified context
      */
     @RequestProcessing(value = "/users/emotions", method = HttpMethod.GET)
-    public void getEmotions(final RequestContext context) {
-        context.renderJSON();
+    public void getFrequentEmotions(final RequestContext context) {
+        final JSONObject result = Results.newSucc();
+        context.renderJSON(result);
 
-        final HttpServletRequest request = context.getRequest();
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final List<JSONObject> data = new ArrayList<>();
+        final JSONObject currentUser = Sessions.getUser();
         if (null == currentUser) {
-            context.renderJSONValue("emotions", "");
+            result.put(Common.DATA, data);
 
             return;
         }
 
         final String userId = currentUser.optString(Keys.OBJECT_ID);
-        final String emotions = emotionQueryService.getEmojis(userId);
+        String emotions = emotionQueryService.getEmojis(userId);
+        final String[] emojis = emotions.split(",");
+        for (final String emoji : emojis) {
+            String emojiChar = Emotions.toUnicode(":" + emoji + ":");
+            if (StringUtils.contains(emojiChar, ":")) {
+                final String suffix = "huaji".equals(emoji) ? ".gif" : ".png";
+                emojiChar = Latkes.getStaticServePath() + "/emoji/graphics/" + emoji + suffix;
+            }
 
-        context.renderJSONValue("emotions", emotions);
+            data.add(new JSONObject().put(emoji, emojiChar));
+        }
+
+        result.put(Common.DATA, data);
     }
 
     /**

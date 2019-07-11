@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -175,14 +175,14 @@
                             </div>
                             <div class="metro-item">
                             <#if ADLabel != '' >
-                                <a class="preview" href="https://hacpai.com/article/1460083956075">
+                                <a class="preview" href="${servePath}/about">
                                     <img src="${staticServePath}/emoji/graphics/heart.png" alt="${sponsorLabel}">
                                     <b>${adDeliveryLabel}</b>
                                 </a>
                             <#else>
-                                <a class="preview" href="https://hacpai.com/man">
-                                    <img src="${staticServePath}/images/tags/shell.png" alt="${sponsorLabel}">
-                                    <b>Hacker's Manual</b>
+                                <a class="preview" href="${servePath}/about">
+                                    <img src="${staticServePath}/emoji/graphics/heart.png" alt="${sponsorLabel}">
+                                    <b>${adDeliveryLabel}</b>
                                 </a>
                             </#if>
                             </div>
@@ -192,7 +192,7 @@
                                 ${ADLabel}
                                 </div>
                             <#else>
-                                <a class="preview" href="https://hacpai.com/article/1460083956075">
+                                <a class="preview" href="${servePath}/about">
                                     <img src="${staticServePath}/emoji/graphics/heart.png" alt="${sponsorLabel}">
                                     <b>${adDeliveryLabel}</b>
                                 </a>

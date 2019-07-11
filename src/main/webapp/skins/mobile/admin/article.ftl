@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -134,7 +134,11 @@
 
                 <label for="articleId">${pushLabel} Email  ${sortLabel}</label>
                 <input type="number" id="articlePushOrder" name="articlePushOrder" value="${article.articlePushOrder}" />
-
+                <label>${showInListLabel}</label>
+                <select id="articleShowInList" name="articleShowInList">
+                    <option value="1"<#if 1==article.articleShowInList> selected</#if>>${yesLabel}</option>
+                    <option value="0"<#if 0==article.articleShowInListe> selected</#if>>${noLabel}</option>
+                </select>
                 <br/><br/>
                 <button type="submit" class="green fn-right" >${submitLabel}</button>
             </form>

@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -63,14 +63,14 @@ public class CSRFCheck extends ProcessAdvice {
         exception.put(Keys.STATUS_CODE, false);
 
         // 1. Check Referer
-        final String referer = request.getHeader("Referer");
+        final String referer = context.header("Referer");
         if (!StringUtils.startsWith(referer, StringUtils.substringBeforeLast(Latkes.getServePath(), ":"))) {
             throw new RequestProcessAdviceException(exception);
         }
 
         // 2. Check Token
-        final String clientToken = request.getHeader(Common.CSRF_TOKEN);
-        final String serverToken = Sessions.getCSRFToken(request);
+        final String clientToken = context.header(Common.CSRF_TOKEN);
+        final String serverToken = Sessions.getCSRFToken(context);
 
         if (!StringUtils.equals(clientToken, serverToken)) {
             throw new RequestProcessAdviceException(exception);

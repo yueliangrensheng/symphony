@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -30,6 +30,7 @@ import org.b3log.symphony.model.*;
 import org.b3log.symphony.processor.advice.LoginCheck;
 import org.b3log.symphony.processor.advice.PermissionCheck;
 import org.b3log.symphony.service.*;
+import org.b3log.symphony.util.Sessions;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletRequest;
@@ -115,7 +116,7 @@ public class VoteProcessor {
         final JSONObject requestJSONObject = context.requestJSON();
         final String dataId = requestJSONObject.optString(Common.DATA_ID);
 
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         final String userId = currentUser.optString(Keys.OBJECT_ID);
 
         if (!Role.ROLE_ID_C_ADMIN.equals(currentUser.optString(User.USER_ROLE))
@@ -170,7 +171,7 @@ public class VoteProcessor {
         final JSONObject requestJSONObject = context.requestJSON();
         final String dataId = requestJSONObject.optString(Common.DATA_ID);
 
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         final String userId = currentUser.optString(Keys.OBJECT_ID);
 
         if (!Role.ROLE_ID_C_ADMIN.equals(currentUser.optString(User.USER_ROLE))
@@ -226,7 +227,7 @@ public class VoteProcessor {
         final JSONObject requestJSONObject = context.requestJSON();
         final String dataId = requestJSONObject.optString(Common.DATA_ID);
 
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         final String userId = currentUser.optString(Keys.OBJECT_ID);
 
         if (!Role.ROLE_ID_C_ADMIN.equals(currentUser.optString(User.USER_ROLE))
@@ -281,7 +282,7 @@ public class VoteProcessor {
         final JSONObject requestJSONObject = context.requestJSON();
         final String dataId = requestJSONObject.optString(Common.DATA_ID);
 
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         final String userId = currentUser.optString(Keys.OBJECT_ID);
 
         if (!Role.ROLE_ID_C_ADMIN.equals(currentUser.optString(User.USER_ROLE))

@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -35,15 +35,13 @@ import org.b3log.symphony.processor.advice.stopwatch.StopwatchEndAdvice;
 import org.b3log.symphony.processor.advice.stopwatch.StopwatchStartAdvice;
 import org.b3log.symphony.service.DataModelService;
 
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
 import java.util.Map;
 
 /**
  * Error processor.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.2.0.10, Jun 2, 2018
+ * @version 1.2.1.0, Mar 30, 2019
  * @since 0.2.0
  */
 @RequestProcessor
@@ -71,7 +69,7 @@ public class ErrorProcessor {
      *
      * @param context the specified context
      */
-    @RequestProcessing(value = "/error/{statusCode}", method = {HttpMethod.GET, HttpMethod.POST})
+    @RequestProcessing(value = "/error/{statusCode}", method = {HttpMethod.GET, HttpMethod.POST, HttpMethod.PUT, HttpMethod.DELETE})
     @Before(StopwatchStartAdvice.class)
     @After({PermissionGrant.class, StopwatchEndAdvice.class})
     public void handleErrorPage(final RequestContext context) {
@@ -81,15 +79,10 @@ public class ErrorProcessor {
             final String templateName = statusCode + ".ftl";
             LOGGER.log(Level.TRACE, "Shows error page[requestURI={0}, templateName={1}]", requestURI, templateName);
 
-            final HttpServletRequest request = context.getRequest();
-            final HttpServletResponse response = context.getResponse();
-            final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-            renderer.setTemplateName("error/" + templateName);
-            context.setRenderer(renderer);
-
+            final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "error/" + templateName);
             final Map<String, Object> dataModel = renderer.getDataModel();
             dataModel.putAll(langPropsService.getAll(Locales.getLocale()));
-            dataModelService.fillHeaderAndFooter(request, response, dataModel);
+            dataModelService.fillHeaderAndFooter(context, dataModel);
             dataModelService.fillSideHotArticles(dataModel);
             dataModelService.fillRandomArticles(dataModel);
             dataModelService.fillSideTags(dataModel);

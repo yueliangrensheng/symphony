@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -28,7 +28,7 @@ import org.json.JSONObject;
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author Bill Ho
- * @version 2.16.0.0, Nov 5, 2018
+ * @version 2.16.0.1, Jan 10, 2019
  * @see org.b3log.latke.model.User
  * @since 0.2.0
  */
@@ -457,30 +457,20 @@ public final class UserExt {
      */
     public static final int USER_STATUS_C_DEACTIVATED = 4;
 
-    //// Join point rank constants
+    //// Join join XXX rank constants
     /**
-     * User join point rank - join.
+     * User join XXX rank - join.
      */
-    public static final int USER_JOIN_POINT_RANK_C_JOIN = 0;
+    public static final int USER_JOIN_XXX_C_JOIN = 0;
 
     /**
-     * User join point rank - not join.
+     * User join XXX rank - not join.
      */
-    public static final int USER_JOIN_POINT_RANK_C_NOT_JOIN = 1;
+    public static final int USER_JOIN_XXX_C_NOT_JOIN = 1;
 
+    //// User XXX status constants
     /**
-     * User join used point rank - join.
-     */
-    public static final int USER_JOIN_USED_POINT_RANK_C_JOIN = 0;
-
-    /**
-     * User join used point rank - not join.
-     */
-    public static final int USER_JOIN_USED_POINT_RANK_C_NOT_JOIN = 1;
-
-    //// User XXX Status constants
-    /**
-     * User XXX (notify/point/follower/following article/following tag/following user/comment/article/breezemoon) status - public.
+     * User XXX (notify/point/follower/following article/watching article/following tag/following user/comment/article/breezemoon) status - public.
      */
     public static final int USER_XXX_STATUS_C_PUBLIC = 0;
 
@@ -636,13 +626,13 @@ public final class UserExt {
 
 
     /**
-     * Checks the specified email whether in a whitelist mail domain.
+     * Checks the specified email whether in a valid mail domain.
      *
      * @param email the specified email
      * @return {@code true} if it is, returns {@code false} otherwise
      */
-    public static boolean isWhitelistMailDomain(final String email) {
-        final String whitelistMailDomains = Symphonys.get("whitelist.mailDomains");
+    public static boolean isValidMailDomain(final String email) {
+        final String whitelistMailDomains = Symphonys.MAIL_DOMAINS;
         if (StringUtils.isBlank(whitelistMailDomains)) {
             return true;
         }
@@ -667,16 +657,6 @@ public final class UserExt {
 
         return StringUtils.containsIgnoreCase(userName, UserExt.ANONYMOUS_USER_NAME);
 
-    }
-
-    /**
-     * Checks whether the specified user updated avatar.
-     *
-     * @param user the specified user
-     * @return {@code true} if the specified user updated avatar, returns {@code false} otherwise
-     */
-    public static boolean updatedAvatar(final JSONObject user) {
-        return user.optString(UserExt.USER_AVATAR_URL).contains("_");
     }
 
     /**

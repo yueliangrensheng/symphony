@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -25,7 +25,6 @@
         <@head title="${chatRoomLabel} - ${symphonyLabel}">
         <meta name="description" content="${chatRoomLabel}"/>
         </@head>
-        <link rel="stylesheet" href="${staticServePath}/js/lib/editor/codemirror.min.css">
     </head>
     <body>
         <#include "header.ftl">
@@ -33,49 +32,47 @@
             <@subNav 'community' ''/>
             <div class="wrapper">
                 <div class="content chat-room">
-                    <div class="form">
-                        <div class="reply">
-                            <#if isLoggedIn>
-                            <textarea id="chatContent" rows="10" placeholder="Say sth...."></textarea>
-                                <div class="fn-clear comment-submit">
-                                    <div class="fn-left online-cnt">${onlineVisitorCountLabel} <span id="onlineCnt"></span></div>
-                                    <div class="tip fn-left" id="chatContentTip"></div>
-                                    <div class="fn-right">
-                                        <button class="green" onclick="ChatRoom.send()">${postLabel}</button>
-                                    </div>
+                    <div class="reply">
+                        <#if isLoggedIn>
+                        <div id="chatContent"></div>
+                            <div class="fn-clear comment-submit">
+                                <div class="fn-left online-cnt">${onlineVisitorCountLabel} <span id="onlineCnt"></span></div>
+                                <div class="tip fn-left" id="chatContentTip"></div>
+                                <div class="fn-right">
+                                    <button class="green" onclick="ChatRoom.send()">${postLabel}</button>
                                 </div>
-                            <#else>
-                            <div class="comment-login">
-                                <a rel="nofollow" href="javascript:window.scrollTo(0,0);Util.goLogin();">${loginDiscussLabel}</a>
                             </div>
-                            </#if>
+                        <#else>
+                        <div class="comment-login">
+                            <a rel="nofollow" href="javascript:window.scrollTo(0,0);Util.goLogin();">${loginDiscussLabel}</a>
                         </div>
-                        <br/>
-                        <div class="list">
-                            <ul>
-                                <#list messages as msg>
-                                    <li class="fn-flex">
-                                        <a rel="nofollow" href="${servePath}/member/${msg.userName}">
-                                            <div class="avatar tooltipped tooltipped-n"
-                                                 aria-label="${msg.userName}" style="background-image:url('${msg.userAvatarURL}')"></div>
-                                        </a>
-                                        <div class="fn-flex-1">
-                                            <div class="ft-smaller">
-                                                <a rel="nofollow" href="${servePath}/member/${msg.userName}">
-                                                    <span class="ft-gray">${msg.userName}</span>
-                                                </a>
-                                                <span class="ft-fade">
-                                             • ${msg.time}
-                                        </span>
-                                            </div>
-                                            <div class="content-reset comment">
-                                                ${msg.content}
-                                            </div>
+                        </#if>
+                    </div>
+                    <br/>
+                    <div class="list">
+                        <ul>
+                            <#list messages as msg>
+                                <li class="fn-flex">
+                                    <a rel="nofollow" href="${servePath}/member/${msg.userName}">
+                                        <div class="avatar tooltipped tooltipped-n"
+                                             aria-label="${msg.userName}" style="background-image:url('${msg.userAvatarURL}')"></div>
+                                    </a>
+                                    <div class="fn-flex-1">
+                                        <div class="ft-smaller">
+                                            <a rel="nofollow" href="${servePath}/member/${msg.userName}">
+                                                <span class="ft-gray">${msg.userName}</span>
+                                            </a>
+                                            <span class="ft-fade">
+                                         • ${msg.time}
+                                    </span>
                                         </div>
-                                    </li>
-                                </#list>  
-                            </ul>
-                        </div>
+                                        <div class="vditor-reset comment">
+                                            ${msg.content}
+                                        </div>
+                                    </div>
+                                </li>
+                            </#list>
+                        </ul>
                     </div>
                 </div>
                 <div class="side">
@@ -87,9 +84,6 @@
         <script>
             Label.uploadLabel = "${uploadLabel}";
         </script>
-        <script src="${staticServePath}/js/lib/editor/codemirror.min.js?${staticResourceVersion}"></script>
-        <script src="${staticServePath}/js/lib/highlight/highlight.pack.js"></script>
-        <script src="${staticServePath}/js/lib/jquery/file-upload-9.10.1/jquery.fileupload.min.js"></script>
         <script src="${staticServePath}/js/channel${miniPostfix}.js?${staticResourceVersion}"></script>
         <script src="${staticServePath}/js/chat-room${miniPostfix}.js?${staticResourceVersion}"></script>
         <script>
@@ -110,17 +104,6 @@
             // Init [ChatRoom] channel
             ChatRoomChannel.init("${wsScheme}://${serverHost}:${serverPort}${contextPath}/chat-room-channel");
             var chatRoomMsgCnt = ${chatRoomMsgCnt};
-            Util.uploadFile({
-            "type": "img",
-                    "id": "fileUpload",
-                    "pasteZone": $(".CodeMirror"),
-                    "editor": ChatRoom.editor,
-                    "qiniuUploadToken": "${qiniuUploadToken}",
-                    "uploadingLabel": "${uploadingLabel}",
-                    "qiniuDomain": "${qiniuDomain}",
-                    "imgMaxSize": ${imgMaxSize?c},
-                    "fileMaxSize": ${fileMaxSize?c}
-            });
         </script>
     </body>
 </html>

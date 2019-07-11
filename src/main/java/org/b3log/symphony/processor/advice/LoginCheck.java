@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -25,15 +25,14 @@ import org.b3log.latke.model.User;
 import org.b3log.latke.servlet.RequestContext;
 import org.b3log.latke.servlet.advice.ProcessAdvice;
 import org.b3log.latke.servlet.advice.RequestProcessAdviceException;
-import org.b3log.symphony.model.Common;
 import org.b3log.symphony.model.UserExt;
 import org.b3log.symphony.service.UserMgmtService;
 import org.b3log.symphony.service.UserQueryService;
+import org.b3log.symphony.util.Sessions;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import java.util.Map;
 
 /**
  * Login check. Gets user from request attribute named "user" if logged in.
@@ -67,10 +66,10 @@ public class LoginCheck extends ProcessAdvice {
         final HttpServletRequest request = context.getRequest();
 
         final JSONObject exception = new JSONObject();
-        exception.put(Keys.MSG, HttpServletResponse.SC_UNAUTHORIZED + ", " + request.getRequestURI());
+        exception.put(Keys.MSG, HttpServletResponse.SC_UNAUTHORIZED + ", " + context.requestURI());
         exception.put(Keys.STATUS_CODE, HttpServletResponse.SC_UNAUTHORIZED);
 
-        JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        JSONObject currentUser = Sessions.getUser();
         if (null == currentUser) {
             throw new RequestProcessAdviceException(exception);
         }

@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -20,7 +20,6 @@
 <div class="footer">
     <div class="wrapper ft-smaller">
         <div class="footer-nav">
-            <a rel="copyright" href="https://hacpai.com" target="_blank">hacpai.com</a>
         ${visionLabel}
         </div>
         <div class="fn-hr5"></div>
@@ -44,9 +43,12 @@
 </div>
 <script src="${staticServePath}/js/symbol-defs${miniPostfix}.js?${staticResourceVersion}"></script>
 <script src="${staticServePath}/js/lib/compress/libs.min.js?${staticResourceVersion}"></script>
+<script src="https://cdn.jsdelivr.net/npm/vditor@1.5.7/dist/index.min.js"></script>
 <script src="${staticServePath}/js/common${miniPostfix}.js?${staticResourceVersion}"></script>
 <script>
     var Label = {
+        commentEditorPlaceholderLabel: '${commentEditorPlaceholderLabel}',
+        langLabel: '${langLabel}',
         reportSuccLabel: '${reportSuccLabel}',
         breezemoonLabel: '${breezemoonLabel}',
         confirmRemoveLabel: "${confirmRemoveLabel}",
@@ -92,4 +94,3 @@
     Util.initSearch('${algoliaAppId}', '${algoliaSearchKey}', '${algoliaIndex}')
 </script>
 </#if>
-${footerMobileCode}

@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -20,7 +20,7 @@
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 2.33.1.1, Aug 20, 2018
+ * @version 2.33.1.3, Mar 17, 2019
  */
 
 @import "variables";
@@ -116,7 +116,7 @@
     background-size: 45px 45px;
     position: relative;
 
-    .content-reset > p {
+    .vditor-reset > p {
       margin-bottom: 0;
     }
 
@@ -368,10 +368,6 @@
       color: $black-text;
     }
   }
-
-  .cm-s-default.CodeMirror {
-    height: 210px;
-  }
 }
 
 #heatBar {
@@ -534,30 +530,9 @@ label.cmt-anonymous {
   background-color: transparent;
 }
 
-#commentContent,
-#chatContent {
-  background-color: #FAFAFA;
-  margin: 32px 0 0 0;
-  overflow: hidden;
-  padding: 4px;
-  height: 102px;
-  width: 100%;
-}
-
-.CodeMirror-scroll {
-  min-height: 88px;
-}
-
 #replyUseName {
   line-height: 20px;
   height: 20px;
-}
-
-#revision .cm-s-default.CodeMirror {
-  border-radius: 0;
-  border: 0;
-  margin-bottom: 0;
-  height: auto;
 }
 
 .img-preview {
@@ -1057,7 +1032,7 @@ code .dec {
 
 /* end activity */
 
-/* start chat room */
+/* start chatroom */
 .chat-room .online-cnt {
   line-height: 33px;
   margin-right: 10px;
@@ -1073,7 +1048,7 @@ code .dec {
   background-color: #f1f7fe;
 }
 
-/* end chat room */
+/* end chatroom */
 
 /* start index */
 .index {

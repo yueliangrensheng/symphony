@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -21,10 +21,15 @@ package org.b3log.symphony.model;
  * This class defines all common model relevant keys.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.73.0.4, Dec 2, 2018
+ * @version 1.73.0.9, Feb 18, 2019
  * @since 0.2.0
  */
 public final class Common {
+
+    /**
+     * Key of old article.
+     */
+    public static final String OLD_ARTICLE = "oldArticle";
 
     /**
      * Lock.
@@ -45,11 +50,6 @@ public final class Common {
      * Key of query.
      */
     public static final String QUERY = "query";
-
-    /**
-     * Key of code.
-     */
-    public static final String CODE = "code";
 
     /**
      * Key of command.
@@ -267,9 +267,9 @@ public final class Common {
     public static final String CSRF_TOKEN = "csrfToken";
 
     /**
-     * Key of marked engine available.
+     * Key of markdown-http engine available.
      */
-    public static final String MARKED_AVAILABLE = "markedAvailable";
+    public static final String MARKDOWN_HTTP_AVAILABLE = "markdownHttpAvailable";
 
     /**
      * Key of city.
@@ -365,11 +365,6 @@ public final class Common {
      * Key of is daily checkin.
      */
     public static final String IS_DAILY_CHECKIN = "isDailyCheckin";
-
-    /**
-     * Key of use captcha checkin.
-     */
-    public static final String USE_CAPTCHA_CHECKIN = "useCaptchaCheckin";
 
     /**
      * Key of mini postfix.
@@ -485,6 +480,11 @@ public final class Common {
      * Key of side tags.
      */
     public static final String SIDE_TAGS = "sideTags";
+
+    /**
+     * Key of side breezemoons.
+     */
+    public static final String SIDE_BREEZEMOONS = "sideBreezemoons";
 
     /**
      * Key of navigation trend tags.
@@ -710,26 +710,6 @@ public final class Common {
      * Key of site visit statistic code.
      */
     public static final String SITE_VISIT_STAT_CODE = "siteVisitStatCode";
-
-    /**
-     * Key of macro head PC.
-     */
-    public static final String MACRO_HEAD_PC_CODE = "macroHeadPCCode";
-
-    /**
-     * Key of macro head mobile code.
-     */
-    public static final String MACRO_HEAD_MOBILE_CODE = "macroHeadMobileCode";
-
-    /**
-     * Key of footer PC code.
-     */
-    public static final String FOOTER_PC_CODE = "footerPCCode";
-
-    /**
-     * Key of footer mobile code.
-     */
-    public static final String FOOTER_MOBILE_CODE = "footerMobileCode";
 
     /**
      * Key of footer bei an hao.

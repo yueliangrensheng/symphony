@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -57,14 +57,14 @@ import java.util.concurrent.*;
 /**
  * <a href="http://en.wikipedia.org/wiki/Markdown">Markdown</a> utilities.
  * <p>
- * Uses the <a href="https://github.com/chjj/marked">marked</a> as the processor, if not found this command, try
+ * Uses the <a href="https://github.com/b3log/markdown-http">markdown-http</a> as the processor, if not found this service, try
  * built-in <a href="https://github.com/vsch/flexmark-java">flexmark</a> instead.
  * </p>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author <a href="http://zephyr.b3log.org">Zephyr</a>
  * @author <a href="http://vanessa.b3log.org">Vanessa</a>
- * @version 1.11.21.7, Oct 20, 2018
+ * @version 1.11.21.14, May 9, 2019
  * @since 0.2.0
  */
 public final class Markdowns {
@@ -80,14 +80,9 @@ public final class Markdowns {
     private static final Map<String, JSONObject> MD_CACHE = new ConcurrentHashMap<>();
 
     /**
-     * Markdown to HTML timeout.
+     * Markdown engine serve path. https://github.com/b3log/markdown-http
      */
-    private static final int MD_TIMEOUT = Symphonys.getInt("markdown.timeout");
-
-    /**
-     * Marked engine serve path.
-     */
-    private static final String MARKED_ENGINE_URL = "http://localhost:8250";
+    private static final String MARKDOWN_ENGINE_URL = "http://localhost:8250";
 
     /**
      * Built-in MD engine options.
@@ -106,18 +101,18 @@ public final class Markdowns {
     private static final HtmlRenderer RENDERER = HtmlRenderer.builder(OPTIONS).build();
 
     /**
-     * Whether marked is available.
+     * Whether markdown-http is available.
      */
-    public static boolean MARKED_AVAILABLE;
+    public static boolean MARKDOWN_HTTP_AVAILABLE;
 
     static {
         try {
-            final URL url = new URL(MARKED_ENGINE_URL);
+            final URL url = new URL(MARKDOWN_ENGINE_URL);
             final HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setDoOutput(true);
 
             try (final OutputStream outputStream = conn.getOutputStream()) {
-                IOUtils.write("Symphony 大法好", outputStream, "UTF-8");
+                IOUtils.write("再见理想", outputStream, "UTF-8");
             }
 
             String html;
@@ -127,15 +122,15 @@ public final class Markdowns {
 
             conn.disconnect();
 
-            MARKED_AVAILABLE = StringUtils.contains(html, "<p>Symphony 大法好</p>");
+            MARKDOWN_HTTP_AVAILABLE = StringUtils.contains(html, "<p>再见理想</p>");
 
-            if (MARKED_AVAILABLE) {
-                LOGGER.log(Level.INFO, "[marked] is available, uses it for markdown processing");
+            if (MARKDOWN_HTTP_AVAILABLE) {
+                LOGGER.log(Level.INFO, "[markdown-http] is available, uses it for markdown processing");
             } else {
-                LOGGER.log(Level.INFO, "[marked] is not available, uses built-in [flexmark] for markdown processing");
+                LOGGER.log(Level.INFO, "[markdown-http] is not available, uses built-in [flexmark] for markdown processing");
             }
         } catch (final Exception e) {
-            LOGGER.log(Level.INFO, "[marked] is not available caused by [" + e.getMessage() + "], uses built-in [flexmark] for markdown processing");
+            LOGGER.log(Level.INFO, "[markdown-http] is not available caused by [" + e.getMessage() + "], uses built-in [flexmark] for markdown processing");
         }
     }
 
@@ -267,28 +262,20 @@ public final class Markdowns {
             threadId[0] = Thread.currentThread().getId();
 
             String html = langPropsService.get("contentRenderFailedLabel");
-
-            if (MARKED_AVAILABLE) {
+            if (MARKDOWN_HTTP_AVAILABLE) {
                 try {
-                    html = toHtmlByMarked(markdownText);
-                    if (!StringUtils.startsWith(html, "<p>")) {
-                        html = "<p>" + html + "</p>";
-                    }
+                    html = toHtmlByMarkdownHTTP(markdownText);
                 } catch (final Exception e) {
-                    LOGGER.log(Level.WARN, "Failed to use [marked] for markdown [md=" + StringUtils.substring(markdownText, 0, 256) + "]: " + e.getMessage());
+                    LOGGER.log(Level.WARN, "Failed to use [markdown-http] for markdown [md=" + StringUtils.substring(markdownText, 0, 256) + "]: " + e.getMessage());
 
-                    com.vladsch.flexmark.ast.Node document = PARSER.parse(markdownText);
-                    html = RENDERER.render(document);
-                    if (!StringUtils.startsWith(html, "<p>")) {
-                        html = "<p>" + html + "</p>";
-                    }
+                    html = toHtmlByFlexmark(markdownText);
                 }
             } else {
-                com.vladsch.flexmark.ast.Node document = PARSER.parse(markdownText);
-                html = RENDERER.render(document);
-                if (!StringUtils.startsWith(html, "<p>")) {
-                    html = "<p>" + html + "</p>";
-                }
+                html = toHtmlByFlexmark(markdownText);
+            }
+
+            if (!StringUtils.startsWith(html, "<p>")) {
+                html = "<p>" + html + "</p>";
             }
 
             final Whitelist whitelist = Whitelist.relaxed();
@@ -320,7 +307,7 @@ public final class Markdowns {
                                         text = text.replace('@' + userName + (nextIsBr ? "" : " "), "@" + UserExt.getUserLink(userName));
                                     }
                                     text = text.replace("@participants ",
-                                            "@<a href='https://hacpai.com/article/1458053458339' target='_blank' class='ft-red'>participants</a> ");
+                                            "@<a href='" + Latkes.getServePath() + "/about' target='_blank' class='ft-red'>participants</a> ");
                                 }
 
                                 if (text.contains("@<a href=")) {
@@ -353,7 +340,7 @@ public final class Markdowns {
                     return;
                 }
 
-                if (StringUtils.startsWithAny(src, new String[]{Latkes.getServePath(), Symphonys.get("qiniu.domain")})
+                if (StringUtils.startsWithAny(src, new String[]{Latkes.getServePath(), Symphonys.UPLOAD_QINIU_DOMAIN})
                         || StringUtils.endsWithIgnoreCase(src, ".mov")) {
                     return;
                 }
@@ -378,7 +365,7 @@ public final class Markdowns {
         try {
             final Future<String> future = pool.submit(call);
 
-            return future.get(MD_TIMEOUT, TimeUnit.MILLISECONDS);
+            return future.get(Symphonys.MARKDOWN_TIMEOUT, TimeUnit.MILLISECONDS);
         } catch (final TimeoutException e) {
             LOGGER.log(Level.ERROR, "Markdown timeout [md=" + StringUtils.substring(markdownText, 0, 256) + "]");
             Callstacks.printCallstack(Level.ERROR, new String[]{"org.b3log"}, null);
@@ -402,8 +389,8 @@ public final class Markdowns {
         return langPropsService.get("contentRenderFailedLabel");
     }
 
-    private static String toHtmlByMarked(final String markdownText) throws Exception {
-        final URL url = new URL(MARKED_ENGINE_URL);
+    private static String toHtmlByMarkdownHTTP(final String markdownText) throws Exception {
+        final URL url = new URL(MARKDOWN_ENGINE_URL);
         final HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setConnectTimeout(100);
         conn.setReadTimeout(1000);
@@ -417,9 +404,16 @@ public final class Markdowns {
         try (final InputStream inputStream = conn.getInputStream()) {
             ret = IOUtils.toString(inputStream, "UTF-8");
         }
-        //conn.disconnect();
+
+        conn.disconnect();
 
         return ret;
+    }
+
+    private static String toHtmlByFlexmark(final String markdownText) {
+        com.vladsch.flexmark.util.ast.Node document = PARSER.parse(markdownText);
+
+        return RENDERER.render(document);
     }
 
     /**
@@ -452,7 +446,7 @@ public final class Markdowns {
     }
 
     private static void inputWhitelist(final Whitelist whitelist) {
-        whitelist.addTags("span", "hr", "kbd", "samp", "tt", "del", "s", "strike", "u").
+        whitelist.addTags("span", "hr", "kbd", "samp", "tt", "del", "s", "strike", "u", "details", "summary").
                 addAttributes("iframe", "src", "width", "height", "border", "marginwidth", "marginheight").
                 addAttributes("audio", "controls", "src").
                 addAttributes("video", "controls", "src", "width", "height").
@@ -462,6 +456,10 @@ public final class Markdowns {
                 addAttributes("input", "type", "disabled", "checked").
                 addAttributes("embed", "src", "type", "width", "height", "wmode", "allowNetworking").
                 addAttributes("code", "class").
-                addAttributes("span", "class");
+                addAttributes("span", "class").
+                addAttributes("p", "align");
+        for (int i = 1; i <= 6; i++) {
+            whitelist.addAttributes("h" + i, "align");
+        }
     }
 }

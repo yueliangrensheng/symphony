@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -77,7 +77,7 @@
                         <#if "" != article.articleAuthorIntro>
                             <span class="ft-gray">${article.articleAuthorIntro}</span>
                         <#else>
-                            <span class="ft-gray">${symphonyLabel} <#if article.articleAnonymous == 0>${article.articleAuthor.userNo?c}<#else>?</#if> ${numVIPLabel}</span>
+                            <span class="ft-gray">${symphonyLabel} <#if article.articleAnonymous == 0>${article.articleAuthor.userNo?c}<#else>?</#if> ${numMemberLabel}</span>
                         </#if>
                         <br/>
                         <#list article.articleTagObjs as articleTag>
@@ -147,12 +147,17 @@
                          data-author="${article.articleAuthorName}" class="aplayer"></div>
                 </#if>
                 <#if 3 != article.articleType>
-                    <div class="content-reset article-content">
+                    <div class="vditor-reset article-content">
                         ${article.articleContent}
                     </div>
                     <#else>
-                        <div id="thoughtProgress"><span class="bar"></span><svg class="icon-video"><use xlink:href="#video"></use></svg><div data-text="" class="content-reset" id="thoughtProgressPreview"></div></div>
-                        <div class="content-reset article-content"></div>
+                        <div id="thoughtProgress"><span class="bar"></span>
+                            <svg class="icon-video">
+                                <use xlink:href="#video"></use>
+                            </svg>
+                        </div>
+                        <div class="vditor-reset article-content" id="articleThought" data-author="${article.articleAuthorName}"
+                             data-link="${servePath}${article.articlePermalink}"></div>
                 </#if>
 
                 <#if 0 < article.articleRewardPoint>
@@ -161,7 +166,7 @@
                     <#if !article.rewarded>onclick="Article.reward(${article.oId})"</#if>>
                     ${article.rewardedCnt} ${rewardLabel}</span>
 
-                    <div class="content-reset">
+                    <div class="vditor-reset">
                     <#if !article.rewarded>
                          <span>
                             ${rewardTipLabel?replace("{articleId}", article.oId)?replace("{point}", article.articleRewardPoint)}
@@ -209,7 +214,7 @@
                                             <a class="ft-a-title fn-right tooltipped tooltipped-nw" aria-label="${goCommentLabel}"
                                                href="javascript:Comment.goComment('${servePath}/article/${article.oId}?p=${article.articleOfferedComment.paginationCurrentPageNum}&m=${userCommentViewMode}#${article.articleOfferedComment.oId}')"><svg><use xlink:href="#down"></use></svg></a>
                                         </div>
-                                        <div class="content-reset comment">
+                                        <div class="vditor-reset comment">
                                             ${article.articleOfferedComment.commentContent}
                                         </div>
                                     </div>
@@ -253,7 +258,7 @@
                                             <a class="ft-a-title fn-right tooltipped tooltipped-nw" aria-label="${goCommentLabel}"
                                                href="javascript:Comment.goComment('${servePath}/article/${article.oId}?p=${comment.paginationCurrentPageNum}&m=${userCommentViewMode}#${comment.oId}')"><svg><use xlink:href="#down"></use></svg></a>
                                         </div>
-                                        <div class="content-reset comment">
+                                        <div class="vditor-reset comment">
                                             ${comment.commentContent}
                                         </div>
                                     </div>
@@ -349,7 +354,7 @@
                     <div class="module-header">
                         <h2>
                         ${sponsorLabel}
-                            <a href="https://hacpai.com/article/1460083956075" class="fn-right ft-13 ft-gray" target="_blank">${wantPutOnLabel}</a>
+                            <a href="${servePath}/about" class="fn-right ft-13 ft-gray" target="_blank">${wantPutOnLabel}</a>
                         </h2>
                     </div>
                     <div class="module-panel ad fn-clear">
@@ -496,29 +501,32 @@
         <div class="editor-panel">
             <div class="editor-bg"></div>
             <div class="wrapper">
-                <div class="form fn-clear comment-wrap">
+                <div style="width: 100%">
                     <div class="fn-flex">
                         <div id="replyUseName" class="fn-flex-1 fn-ellipsis"></div>
                         <span class="tooltipped tooltipped-w fn-pointer editor-hide" onclick="Comment._toggleReply()" aria-label="${cancelLabel}"> <svg><use xlink:href="#chevron-down"></use></svg></span>
                     </div>
                     <div class="article-comment-content">
-                        <textarea id="commentContent" placeholder="${commentEditorPlaceholderLabel}"></textarea>
-                        <div class="comment-submit">
+                        <div id="commentContent"></div>
+                        <br>
+                        <div class="comment-submit fn-clear">
                             <#if permissions["commonAddCommentAnonymous"].permissionGrant>
                                 <label class="cmt-anonymous">${anonymousLabel}<input type="checkbox" id="commentAnonymous"></label>
                             </#if>
                             <label class="cmt-anonymous">${onlyArticleAuthorVisibleLabel}<input type="checkbox" id="commentVisible"></label>
-                            <button class="green" onclick="Comment.add('${article.oId}', '${csrfToken}', this)">${submitLabel}</button> &nbsp; &nbsp;
-                            <a class="fn-pointer ft-a-title" href="javascript:Comment._toggleReply()">${cancelLabel}</a>
-                            <div class="tip fn-right" id="addCommentTip"></div>
+                            <div class="fn-right">
+                                <div class="tip fn-left" id="addCommentTip"></div> &nbsp; &nbsp;
+                                <a class="fn-pointer ft-a-title" href="javascript:Comment._toggleReply()">${cancelLabel}</a> &nbsp; &nbsp;
+                                <button id="articleCommentBtn" class="green" onclick="Comment.add('${article.oId}', '${csrfToken}', this)">${submitLabel}</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
+        <div id="thoughtProgressPreview"></div>
         </#if>
         <script src="${staticServePath}/js/lib/compress/article-libs.min.js?${staticResourceVersion}"></script>
-        <script src="${staticServePath}/js/lib/editor/editor.js"></script>
         <script src="${staticServePath}/js/channel${miniPostfix}.js?${staticResourceVersion}"></script>
         <script src="${staticServePath}/js/article${miniPostfix}.js?${staticResourceVersion}"></script>
         <script>
@@ -569,8 +577,6 @@
             Label.commonUpdateCommentPermissionLabel = '${commonUpdateCommentPermissionLabel}';
             Label.insertEmojiLabel = '${insertEmojiLabel}';
             Label.commonAtUser = '${permissions["commonAtUser"].permissionGrant?c}';
-            Label.qiniuDomain = '${qiniuDomain}';
-            Label.qiniuUploadToken = '${qiniuUploadToken}';
             Label.noPermissionLabel = '${noPermissionLabel}';
             Label.rewardLabel = '${rewardLabel}';
             Label.imgMaxSize = ${imgMaxSize?c};

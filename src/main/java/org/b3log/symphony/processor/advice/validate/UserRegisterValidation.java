@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -43,9 +43,9 @@ import java.util.Map;
 /**
  * UserRegisterValidation for validate {@link org.b3log.symphony.processor.LoginProcessor} register(Type POST) method.
  *
- * @author <a href="mailto:wmainlove@gmail.com">Love Yao</a>
+ * @author <a href="https://hacpai.com/member/mainlove">Love Yao</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.5.2.12, Aug 12, 2018
+ * @version 1.5.2.13, Mar 23, 2019
  * @since 0.2.0
  */
 @Singleton
@@ -54,7 +54,7 @@ public class UserRegisterValidation extends ProcessAdvice {
     /**
      * Max user name length.
      */
-    public static final int MAX_USER_NAME_LENGTH = 20;
+    public static final int MAX_USER_NAME_LENGTH = 64;
     /**
      * Min user name length.
      */
@@ -113,8 +113,8 @@ public class UserRegisterValidation extends ProcessAdvice {
      * <p>
      * A valid user name:
      * <ul>
-     * <li>length [1, 20]</li>
-     * <li>content {a-z, A-Z, 0-9}</li>
+     * <li>length [1, 64]</li>
+     * <li>content {a-z, A-Z, 0-9, -}</li>
      * </ul>
      * </p>
      *
@@ -138,8 +138,7 @@ public class UserRegisterValidation extends ProcessAdvice {
         char c;
         for (int i = 0; i < length; i++) {
             c = name.charAt(i);
-
-            if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || '0' <= c && c <= '9') {
+            if (('a' <= c && c <= 'z') || ('A' <= c && c <= 'Z') || ('0' <= c && c <= '9') || '-' == c) {
                 continue;
             }
 
@@ -233,7 +232,7 @@ public class UserRegisterValidation extends ProcessAdvice {
 
         checkField(invalidUserName(name), "registerFailLabel", "invalidUserNameLabel");
         checkField(!Strings.isEmail(email), "registerFailLabel", "invalidEmailLabel");
-        checkField(!UserExt.isWhitelistMailDomain(email), "registerFailLabel", "invalidEmail1Label");
+        checkField(!UserExt.isValidMailDomain(email), "registerFailLabel", "invalidEmail1Label");
         checkField(UserExt.USER_APP_ROLE_C_HACKER != appRole
                 && UserExt.USER_APP_ROLE_C_PAINTER != appRole, "registerFailLabel", "invalidAppRoleLabel");
         //checkField(invalidUserPassword(password), "registerFailLabel", "invalidPasswordLabel");

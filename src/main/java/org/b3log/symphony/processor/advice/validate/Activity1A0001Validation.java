@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -28,12 +28,12 @@ import org.b3log.symphony.model.Common;
 import org.b3log.symphony.model.UserExt;
 import org.b3log.symphony.service.ActivityQueryService;
 import org.b3log.symphony.service.LivenessQueryService;
+import org.b3log.symphony.util.Sessions;
 import org.b3log.symphony.util.Symphonys;
 import org.json.JSONObject;
 
 import javax.servlet.http.HttpServletRequest;
 import java.util.Calendar;
-import java.util.Map;
 
 /**
  * Validates for activity 1A0001.
@@ -67,12 +67,12 @@ public class Activity1A0001Validation extends ProcessAdvice {
     public void doAdvice(final RequestContext context) throws RequestProcessAdviceException {
         final HttpServletRequest request = context.getRequest();
 
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         final String userId = currentUser.optString(Keys.OBJECT_ID);
         final int currentLiveness = livenessQueryService.getCurrentLivenessPoint(userId);
-        final int livenessMax = Symphonys.getInt("activitYesterdayLivenessReward.maxPoint");
+        final int livenessMax = Symphonys.ACTIVITY_YESTERDAY_REWARD_MAX;
         final float liveness = (float) currentLiveness / livenessMax * 100;
-        final float livenessThreshold = Symphonys.getFloat("activity1A0001LivenessThreshold");
+        final float livenessThreshold = Symphonys.ACTIVITY_1A0001_LIVENESS_THRESHOLD;
         if (liveness < livenessThreshold) {
             String msg = langPropsService.get("activityNeedLivenessLabel");
             msg = msg.replace("${liveness}", String.valueOf(livenessThreshold) + "%");
@@ -80,7 +80,7 @@ public class Activity1A0001Validation extends ProcessAdvice {
             throw new RequestProcessAdviceException(new JSONObject().put(Keys.MSG, msg));
         }
 
-        if (Symphonys.getBoolean("activity1A0001Closed")) {
+        if (Symphonys.ACTIVITY_1A0001_CLOSED) {
             throw new RequestProcessAdviceException(new JSONObject().put(Keys.MSG, langPropsService.get("activityClosedLabel")));
         }
 

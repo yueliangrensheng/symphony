@@ -1,10 +1,11 @@
 {
   "description": "Description of repository structures, for generation of the relational database table and persistence validation.",
-  "version": "4.41.0.1, Dec 16, 2018",
+  "version": "4.41.0.3, Mar 23, 2019",
   "authors": [
     "Liang Ding",
     "Zephyr",
-    "Bill Ho"
+    "Bill Ho",
+    "qiankunpingtai"
   ],
   "since": "0.2.0",
   "repositories": [
@@ -954,7 +955,7 @@
         {
           "name": "commentContent",
           "type": "String",
-          "length": 2000,
+          "length": 102400,
           "description": "回帖正文内容"
         },
         {
@@ -1312,7 +1313,7 @@
         {
           "name": "userName",
           "type": "String",
-          "length": 20,
+          "length": 64,
           "description": "用户名"
         },
         {
@@ -1749,7 +1750,7 @@
         {
           "name": "articleType",
           "type": "int",
-          "description": "0：普通帖子，1：讨论组（小黑屋），2：同城广播，3：思绪"
+          "description": "0：普通帖子，1：机要，2：同城广播，3：思绪"
         },
         {
           "name": "articleThankCnt",
@@ -1840,6 +1841,11 @@
           "type": "String",
           "length": 255,
           "description": "帖子首图地址"
+        },
+        {
+          "name": "articleShowInList",
+          "type": "int",
+          "description": "帖子是否在列表展示：0 不展示，1 展示 https://github.com/b3log/symphony/issues/927"
         }
       ]
     },

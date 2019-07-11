@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,7 +17,6 @@
  */
 package org.b3log.symphony.processor;
 
-import com.qiniu.util.Auth;
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateFormatUtils;
@@ -44,12 +43,11 @@ import org.b3log.symphony.processor.advice.*;
 import org.b3log.symphony.processor.advice.stopwatch.StopwatchEndAdvice;
 import org.b3log.symphony.processor.advice.stopwatch.StopwatchStartAdvice;
 import org.b3log.symphony.processor.advice.validate.PointTransferValidation;
-import org.b3log.symphony.processor.advice.validate.UpdateEmotionListValidation;
 import org.b3log.symphony.processor.advice.validate.UpdatePasswordValidation;
 import org.b3log.symphony.processor.advice.validate.UpdateProfilesValidation;
 import org.b3log.symphony.service.*;
+import org.b3log.symphony.util.Escapes;
 import org.b3log.symphony.util.Languages;
-import org.b3log.symphony.util.Results;
 import org.b3log.symphony.util.Sessions;
 import org.b3log.symphony.util.Symphonys;
 import org.json.JSONObject;
@@ -82,7 +80,7 @@ import java.util.*;
  * </ul>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.1.1, Nov 5, 2018
+ * @version 1.3.2.3, Apr 18, 2019
  * @since 2.4.0
  */
 @RequestProcessor
@@ -201,7 +199,7 @@ public class SettingsProcessor {
 
         final HttpServletRequest request = context.getRequest();
         final HttpServletResponse response = context.getResponse();
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         try {
             userMgmtService.deactivateUser(currentUser.optString(Keys.OBJECT_ID));
             Sessions.logout(currentUser.optString(Keys.OBJECT_ID), response);
@@ -224,7 +222,7 @@ public class SettingsProcessor {
 
         final HttpServletRequest request = context.getRequest();
         final JSONObject requestJSONObject = context.requestJSON();
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         final String userId = currentUser.optString(Keys.OBJECT_ID);
         try {
             if (currentUser.optInt(UserExt.USER_POINT) < Pointtransfer.TRANSFER_SUM_C_CHANGE_USERNAME) {
@@ -276,7 +274,7 @@ public class SettingsProcessor {
             return;
         }
 
-        final JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject user = Sessions.getUser();
         if (email.equalsIgnoreCase(user.optString(User.USER_EMAIL))) {
             final String msg = langPropsService.get("sendFailedLabel") + " - " + langPropsService.get("bindedLabel");
             context.renderMsg(msg);
@@ -329,14 +327,14 @@ public class SettingsProcessor {
         final HttpServletRequest request = context.getRequest();
         final JSONObject requestJSONObject = context.requestJSON();
         final String captcha = requestJSONObject.optString(CaptchaProcessor.CAPTCHA);
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         final String userId = currentUser.optString(Keys.OBJECT_ID);
         try {
             final JSONObject verifycode = verifycodeQueryService.getVerifycodeByUserId(Verifycode.TYPE_C_EMAIL, Verifycode.BIZ_TYPE_C_BIND_EMAIL, userId);
             if (null == verifycode) {
                 final String msg = langPropsService.get("updateFailLabel") + " - " + langPropsService.get("captchaErrorLabel");
                 context.renderMsg(msg);
-                context.renderJSONValue(Common.CODE, 2);
+                context.renderJSONValue(Keys.CODE, 2);
 
                 return;
             }
@@ -344,7 +342,7 @@ public class SettingsProcessor {
             if (!StringUtils.equals(verifycode.optString(Verifycode.CODE), captcha)) {
                 final String msg = langPropsService.get("updateFailLabel") + " - " + langPropsService.get("captchaErrorLabel");
                 context.renderMsg(msg);
-                context.renderJSONValue(Common.CODE, 2);
+                context.renderJSONValue(Keys.CODE, 2);
 
                 return;
             }
@@ -393,7 +391,7 @@ public class SettingsProcessor {
         }
 
         try {
-            JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+            JSONObject user = Sessions.getUser();
             final String userId = user.optString(Keys.OBJECT_ID);
             user = userQueryService.getUser(userId);
 
@@ -417,10 +415,7 @@ public class SettingsProcessor {
     @Before({StopwatchStartAdvice.class, LoginCheck.class})
     @After({CSRFToken.class, PermissionGrant.class, StopwatchEndAdvice.class})
     public void showSettings(final RequestContext context) {
-        final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
-
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, null);
         context.setRenderer(renderer);
         String page = context.pathVar("page");
         if (StringUtils.isBlank(page)) {
@@ -430,40 +425,29 @@ public class SettingsProcessor {
         renderer.setTemplateName("home/settings/" + page);
         final Map<String, Object> dataModel = renderer.getDataModel();
 
-        final JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject user = Sessions.getUser();
         UserProcessor.fillHomeUser(dataModel, user, roleQueryService);
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-        avatarQueryService.fillUserAvatarURL(avatarViewMode, user);
+        avatarQueryService.fillUserAvatarURL(user);
 
         final String userId = user.optString(Keys.OBJECT_ID);
 
         final int invitedUserCount = userQueryService.getInvitedUserCount(userId);
         dataModel.put(Common.INVITED_USER_COUNT, invitedUserCount);
 
-        // Qiniu file upload authenticate
-        final Auth auth = Auth.create(Symphonys.get("qiniu.accessKey"), Symphonys.get("qiniu.secretKey"));
-        final String uploadToken = auth.uploadToken(Symphonys.get("qiniu.bucket"));
-        dataModel.put("qiniuUploadToken", uploadToken);
-        dataModel.put("qiniuDomain", Symphonys.get("qiniu.domain"));
-
-        if (!Symphonys.getBoolean("qiniu.enabled")) {
-            dataModel.put("qiniuUploadToken", "");
-        }
-
-        final long imgMaxSize = Symphonys.getLong("upload.img.maxSize");
+        final long imgMaxSize = Symphonys.UPLOAD_IMG_MAX;
         dataModel.put("imgMaxSize", imgMaxSize);
-        final long fileMaxSize = Symphonys.getLong("upload.file.maxSize");
+        final long fileMaxSize = Symphonys.UPLOAD_FILE_MAX;
         dataModel.put("fileMaxSize", fileMaxSize);
 
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
 
         String inviteTipLabel = (String) dataModel.get("inviteTipLabel");
         inviteTipLabel = inviteTipLabel.replace("{point}", String.valueOf(Pointtransfer.TRANSFER_SUM_C_INVITE_REGISTER));
         dataModel.put("inviteTipLabel", inviteTipLabel);
 
         String pointTransferTipLabel = (String) dataModel.get("pointTransferTipLabel");
-        pointTransferTipLabel = pointTransferTipLabel.replace("{point}", Symphonys.get("pointTransferMin"));
+        pointTransferTipLabel = pointTransferTipLabel.replace("{point}", Symphonys.POINT_TRANSER_MIN + "");
         dataModel.put("pointTransferTipLabel", pointTransferTipLabel);
 
         String dataExportTipLabel = (String) dataModel.get("dataExportTipLabel");
@@ -482,20 +466,20 @@ public class SettingsProcessor {
         dataModel.put("buyInvitecodeLabel", buyInvitecodeLabel);
 
         String updateNameTipLabel = (String) dataModel.get("updateNameTipLabel");
-        updateNameTipLabel = updateNameTipLabel.replace("{point}", Symphonys.get("pointChangeUsername"));
+        updateNameTipLabel = updateNameTipLabel.replace("{point}", Symphonys.POINT_CHANGE_USERNAME + "");
         dataModel.put("updateNameTipLabel", updateNameTipLabel);
 
         final List<JSONObject> invitecodes = invitecodeQueryService.getValidInvitecodes(userId);
         for (final JSONObject invitecode : invitecodes) {
             String msg = langPropsService.get("expireTipLabel");
             msg = msg.replace("${time}", DateFormatUtils.format(invitecode.optLong(Keys.OBJECT_ID)
-                    + Symphonys.getLong("invitecode.expired"), "yyyy-MM-dd HH:mm"));
+                    + Symphonys.INVITECODE_EXPIRED, "yyyy-MM-dd HH:mm"));
             invitecode.put(Common.MEMO, msg);
         }
 
         dataModel.put(Invitecode.INVITECODES, invitecodes);
 
-        final String requestURI = request.getRequestURI();
+        final String requestURI = context.requestURI();
         if (requestURI.contains("function")) {
             dataModel.put(Emotion.EMOTIONS, emotionQueryService.getEmojis(userId));
             dataModel.put(Emotion.SHORT_T_LIST, emojiLists);
@@ -518,6 +502,9 @@ public class SettingsProcessor {
         }
 
         dataModel.put(Common.TYPE, "settings");
+
+        // “感谢加入”系统通知已读置位 https://github.com/b3log/symphony/issues/907
+        notificationMgmtService.makeRead(userId, Notification.DATA_TYPE_C_SYS_ANNOUNCE_NEW_USER);
     }
 
     /**
@@ -547,7 +534,7 @@ public class SettingsProcessor {
         }
 
         try {
-            JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+            JSONObject user = Sessions.getUser();
             final String userId = user.optString(Keys.OBJECT_ID);
             user = userQueryService.getUser(userId);
             user.put(UserExt.USER_GEO_STATUS, geoStatus);
@@ -595,36 +582,23 @@ public class SettingsProcessor {
         final boolean userJoinPointRank = requestJSONObject.optBoolean(UserExt.USER_JOIN_POINT_RANK);
         final boolean userJoinUsedPointRank = requestJSONObject.optBoolean(UserExt.USER_JOIN_USED_POINT_RANK);
 
-        JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        JSONObject user = Sessions.getUser();
         final String userId = user.optString(Keys.OBJECT_ID);
         user = userQueryService.getUser(userId);
 
-        user.put(UserExt.USER_ONLINE_STATUS, onlineStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_ARTICLE_STATUS, articleStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_COMMENT_STATUS, commentStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_FOLLOWING_USER_STATUS, followingUserStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_FOLLOWING_TAG_STATUS, followingTagStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_FOLLOWING_ARTICLE_STATUS, followingArticleStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_WATCHING_ARTICLE_STATUS, watchingArticleStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_FOLLOWER_STATUS, followerStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_BREEZEMOON_STATUS, breezemoonStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_POINT_STATUS, pointStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_UA_STATUS, uaStatus
-                ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
-        user.put(UserExt.USER_JOIN_POINT_RANK, userJoinPointRank
-                ? UserExt.USER_JOIN_POINT_RANK_C_JOIN : UserExt.USER_JOIN_POINT_RANK_C_NOT_JOIN);
-        user.put(UserExt.USER_JOIN_USED_POINT_RANK, userJoinUsedPointRank
-                ? UserExt.USER_JOIN_USED_POINT_RANK_C_JOIN : UserExt.USER_JOIN_USED_POINT_RANK_C_NOT_JOIN);
+        user.put(UserExt.USER_ONLINE_STATUS, onlineStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_ARTICLE_STATUS, articleStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_COMMENT_STATUS, commentStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_FOLLOWING_USER_STATUS, followingUserStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_FOLLOWING_TAG_STATUS, followingTagStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_FOLLOWING_ARTICLE_STATUS, followingArticleStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_WATCHING_ARTICLE_STATUS, watchingArticleStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_FOLLOWER_STATUS, followerStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_BREEZEMOON_STATUS, breezemoonStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_POINT_STATUS, pointStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_UA_STATUS, uaStatus ? UserExt.USER_XXX_STATUS_C_PUBLIC : UserExt.USER_XXX_STATUS_C_PRIVATE);
+        user.put(UserExt.USER_JOIN_POINT_RANK, userJoinPointRank ? UserExt.USER_JOIN_XXX_C_JOIN : UserExt.USER_JOIN_XXX_C_NOT_JOIN);
+        user.put(UserExt.USER_JOIN_USED_POINT_RANK, userJoinUsedPointRank ? UserExt.USER_JOIN_XXX_C_JOIN : UserExt.USER_JOIN_XXX_C_NOT_JOIN);
 
         try {
             userMgmtService.updateUser(user.optString(Keys.OBJECT_ID), user);
@@ -694,10 +668,10 @@ public class SettingsProcessor {
                 userListPageSize = 96;
             }
         } catch (final Exception e) {
-            userListPageSize = Symphonys.getInt("indexArticlesCnt");
+            userListPageSize = Symphonys.ARTICLE_LIST_CNT;
         }
 
-        JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        JSONObject user = Sessions.getUser();
         final String userId = user.optString(Keys.OBJECT_ID);
         user = userQueryService.getUser(userId);
 
@@ -730,17 +704,16 @@ public class SettingsProcessor {
     @Before({LoginCheck.class, CSRFCheck.class, UpdateProfilesValidation.class})
     public void updateProfiles(final RequestContext context) {
         context.renderJSON();
-
-        final HttpServletRequest request = context.getRequest();
-        final JSONObject requestJSONObject = (JSONObject) request.getAttribute(Keys.REQUEST);
-
+        final JSONObject requestJSONObject = (JSONObject) context.attr(Keys.REQUEST);
         final String userTags = requestJSONObject.optString(UserExt.USER_TAGS);
         final String userURL = requestJSONObject.optString(User.USER_URL);
         final String userQQ = requestJSONObject.optString(UserExt.USER_QQ);
-        final String userIntro = requestJSONObject.optString(UserExt.USER_INTRO);
-        final String userNickname = requestJSONObject.optString(UserExt.USER_NICKNAME);
+        String userIntro = StringUtils.trim(requestJSONObject.optString(UserExt.USER_INTRO));
+        userIntro = Escapes.escapeHTML(userIntro);
+        String userNickname = StringUtils.trim(requestJSONObject.optString(UserExt.USER_NICKNAME));
+        userNickname = Escapes.escapeHTML(userNickname);
 
-        final JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject user = Sessions.getUser();
         user.put(UserExt.USER_TAGS, userTags);
         user.put(User.USER_URL, userURL);
         user.put(UserExt.USER_QQ, userQQ);
@@ -768,10 +741,10 @@ public class SettingsProcessor {
         context.renderJSON();
 
         final HttpServletRequest request = context.getRequest();
-        final JSONObject requestJSONObject = (JSONObject) request.getAttribute(Keys.REQUEST);
+        final JSONObject requestJSONObject = (JSONObject) context.attr(Keys.REQUEST);
         final String userAvatarURL = requestJSONObject.optString(UserExt.USER_AVATAR_URL);
 
-        JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        JSONObject user = Sessions.getUser();
         final String userId = user.optString(Keys.OBJECT_ID);
         user = userQueryService.getUser(userId);
         user.put(UserExt.USER_AVATAR_TYPE, UserExt.USER_AVATAR_TYPE_C_UPLOAD);
@@ -780,8 +753,8 @@ public class SettingsProcessor {
         if (Strings.contains(userAvatarURL, new String[]{"<", ">", "\"", "'"})) {
             user.put(UserExt.USER_AVATAR_URL, AvatarQueryService.DEFAULT_AVATAR_URL);
         } else {
-            if (Symphonys.getBoolean("qiniu.enabled")) {
-                final String qiniuDomain = Symphonys.get("qiniu.domain");
+            if (Symphonys.QN_ENABLED) {
+                final String qiniuDomain = Symphonys.UPLOAD_QINIU_DOMAIN;
 
                 if (!StringUtils.startsWith(userAvatarURL, qiniuDomain)) {
                     user.put(UserExt.USER_AVATAR_URL, AvatarQueryService.DEFAULT_AVATAR_URL);
@@ -813,12 +786,12 @@ public class SettingsProcessor {
         context.renderJSON();
 
         final HttpServletRequest request = context.getRequest();
-        final JSONObject requestJSONObject = (JSONObject) request.getAttribute(Keys.REQUEST);
+        final JSONObject requestJSONObject = (JSONObject) context.attr(Keys.REQUEST);
 
         final String password = requestJSONObject.optString(User.USER_PASSWORD);
         final String newPassword = requestJSONObject.optString(User.USER_NEW_PASSWORD);
 
-        final JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject user = Sessions.getUser();
         if (!password.equals(user.optString(User.USER_PASSWORD))) {
             context.renderMsg(langPropsService.get("invalidOldPwdLabel"));
 
@@ -844,15 +817,14 @@ public class SettingsProcessor {
      * @param context the specified context
      */
     @RequestProcessing(value = "/settings/emotionList", method = HttpMethod.POST)
-    @Before({LoginCheck.class, CSRFCheck.class, UpdateEmotionListValidation.class})
+    @Before({LoginCheck.class, CSRFCheck.class})
     public void updateEmoji(final RequestContext context) {
         context.renderJSON();
 
-        final HttpServletRequest request = context.getRequest();
-        final JSONObject requestJSONObject = (JSONObject) request.getAttribute(Keys.REQUEST);
+        final JSONObject requestJSONObject = context.requestJSON();
         final String emotionList = requestJSONObject.optString(Emotion.EMOTIONS);
 
-        final JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject user = Sessions.getUser();
         try {
             emotionMgmtService.setEmotionList(user.optString(Keys.OBJECT_ID), emotionList);
 
@@ -873,16 +845,16 @@ public class SettingsProcessor {
     @RequestProcessing(value = "/point/transfer", method = HttpMethod.POST)
     @Before({LoginCheck.class, CSRFCheck.class, PointTransferValidation.class})
     public void pointTransfer(final RequestContext context) {
-        final JSONObject ret = Results.falseResult();
+        final JSONObject ret = new JSONObject().put(Keys.STATUS_CODE, false);
         context.renderJSON(ret);
 
         final HttpServletRequest request = context.getRequest();
-        final JSONObject requestJSONObject = (JSONObject) request.getAttribute(Keys.REQUEST);
+        final JSONObject requestJSONObject = (JSONObject) context.attr(Keys.REQUEST);
 
         final int amount = requestJSONObject.optInt(Common.AMOUNT);
-        final JSONObject toUser = (JSONObject) request.getAttribute(Common.TO_USER);
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
-        String memo = (String) request.getAttribute(Pointtransfer.MEMO);
+        final JSONObject toUser = (JSONObject) context.attr(Common.TO_USER);
+        final JSONObject currentUser = Sessions.getUser();
+        String memo = (String) context.attr(Pointtransfer.MEMO);
         if (StringUtils.isBlank(memo)) {
             memo = "";
         }
@@ -913,7 +885,7 @@ public class SettingsProcessor {
     @RequestProcessing(value = "/invitecode/state", method = HttpMethod.POST)
     @Before({LoginCheck.class, CSRFCheck.class})
     public void queryInvitecode(final RequestContext context) {
-        final JSONObject ret = Results.falseResult();
+        final JSONObject ret = new JSONObject().put(Keys.STATUS_CODE, false);
         context.renderJSON(ret);
 
         final JSONObject requestJSONObject = context.requestJSON();
@@ -944,7 +916,7 @@ public class SettingsProcessor {
                 case Invitecode.STATUS_C_UNUSED:
                     String msg = langPropsService.get("invitecodeOkLabel");
                     msg = msg.replace("${time}", DateFormatUtils.format(result.optLong(Keys.OBJECT_ID)
-                            + Symphonys.getLong("invitecode.expired"), "yyyy-MM-dd HH:mm"));
+                            + Symphonys.INVITECODE_EXPIRED, "yyyy-MM-dd HH:mm"));
 
                     ret.put(Keys.MSG, msg);
 
@@ -967,16 +939,15 @@ public class SettingsProcessor {
     @RequestProcessing(value = "/point/buy-invitecode", method = HttpMethod.POST)
     @Before({LoginCheck.class, CSRFCheck.class, PermissionCheck.class})
     public void pointBuy(final RequestContext context) {
-        final JSONObject ret = Results.falseResult();
+        final JSONObject ret = new JSONObject().put(Keys.STATUS_CODE, false);
         context.renderJSON(ret);
 
-        final HttpServletRequest request = context.getRequest();
         final String allowRegister = optionQueryService.getAllowRegister();
         if (!"2".equals(allowRegister)) {
             return;
         }
 
-        final JSONObject currentUser = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject currentUser = Sessions.getUser();
         final String fromId = currentUser.optString(Keys.OBJECT_ID);
         final String userName = currentUser.optString(User.USER_NAME);
 
@@ -995,7 +966,7 @@ public class SettingsProcessor {
         } else {
             String msg = langPropsService.get("expireTipLabel");
             msg = msg.replace("${time}", DateFormatUtils.format(System.currentTimeMillis()
-                    + Symphonys.getLong("invitecode.expired"), "yyyy-MM-dd HH:mm"));
+                    + Symphonys.INVITECODE_EXPIRED, "yyyy-MM-dd HH:mm"));
             ret.put(Keys.MSG, invitecode + " " + msg);
         }
     }
@@ -1010,8 +981,7 @@ public class SettingsProcessor {
     public void exportPosts(final RequestContext context) {
         context.renderJSON();
 
-        final HttpServletRequest request = context.getRequest();
-        final JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject user = Sessions.getUser();
         final String userId = user.optString(Keys.OBJECT_ID);
 
         final String downloadURL = postExportService.exportPosts(userId);

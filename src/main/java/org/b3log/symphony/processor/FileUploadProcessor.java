@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,6 +17,9 @@
  */
 package org.b3log.symphony.processor;
 
+import com.qiniu.storage.Configuration;
+import com.qiniu.storage.UploadManager;
+import com.qiniu.util.Auth;
 import jodd.io.FileUtil;
 import jodd.io.upload.FileUpload;
 import jodd.io.upload.MultipartStreamParser;
@@ -26,9 +29,12 @@ import org.apache.commons.codec.digest.DigestUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateFormatUtils;
+import org.b3log.latke.Keys;
 import org.b3log.latke.Latkes;
+import org.b3log.latke.ioc.Inject;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
+import org.b3log.latke.service.LangPropsService;
 import org.b3log.latke.servlet.HttpMethod;
 import org.b3log.latke.servlet.RequestContext;
 import org.b3log.latke.servlet.annotation.RequestProcessing;
@@ -36,22 +42,26 @@ import org.b3log.latke.servlet.annotation.RequestProcessor;
 import org.b3log.latke.util.Strings;
 import org.b3log.latke.util.URLs;
 import org.b3log.symphony.SymphonyServletListener;
-import org.b3log.symphony.util.Symphonys;
+import org.b3log.symphony.model.Common;
+import org.b3log.symphony.util.*;
 import org.json.JSONObject;
 
-import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+
+import static org.b3log.symphony.util.Symphonys.QN_ENABLED;
 
 /**
  * File upload to local.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
- * @version 2.0.1.4, Oct 28, 2018
+ * @version 2.0.1.7, Feb 11, 2019
  * @since 1.4.0
  */
 @RequestProcessor
@@ -63,31 +73,10 @@ public class FileUploadProcessor {
     private static final Logger LOGGER = Logger.getLogger(FileUploadProcessor.class);
 
     /**
-     * Upload directory.
+     * Language service.
      */
-    private static final String UPLOAD_DIR = Symphonys.get("upload.dir");
-
-    /**
-     * Qiniu enabled.
-     */
-    private static final Boolean QN_ENABLED = Symphonys.getBoolean("qiniu.enabled");
-
-    static {
-        if (!QN_ENABLED) {
-            final File file = new File(UPLOAD_DIR);
-            if (!FileUtil.isExistingFolder(file)) {
-                try {
-                    FileUtil.mkdirs(UPLOAD_DIR);
-                } catch (IOException ex) {
-                    LOGGER.log(Level.ERROR, "Init upload dir failed", ex);
-
-                    System.exit(-1);
-                }
-            }
-
-            LOGGER.info("Uses dir [" + file.getAbsolutePath() + "] for file uploading");
-        }
-    }
+    @Inject
+    private LangPropsService langPropsService;
 
     /**
      * Gets file by the specified URL.
@@ -100,21 +89,20 @@ public class FileUploadProcessor {
             return;
         }
 
-        final HttpServletRequest request = context.getRequest();
         final HttpServletResponse response = context.getResponse();
 
-        final String uri = request.getRequestURI();
+        final String uri = context.requestURI();
         String key = StringUtils.substringAfter(uri, "/upload/");
         key = StringUtils.substringBeforeLast(key, "?"); // Erase Qiniu template
         key = StringUtils.substringBeforeLast(key, "?"); // Erase Qiniu template
 
-        String path = UPLOAD_DIR + key;
+        String path = Symphonys.UPLOAD_LOCAL_DIR + key;
         path = URLs.decode(path);
 
         try {
             if (!FileUtil.isExistingFile(new File(path)) ||
-                    !FileUtil.isExistingFolder(new File(UPLOAD_DIR)) ||
-                    !new File(path).getCanonicalPath().startsWith(new File(UPLOAD_DIR).getCanonicalPath())) {
+                    !FileUtil.isExistingFolder(new File(Symphonys.UPLOAD_LOCAL_DIR)) ||
+                    !new File(path).getCanonicalPath().startsWith(new File(Symphonys.UPLOAD_LOCAL_DIR).getCanonicalPath())) {
                 context.sendError(HttpServletResponse.SC_NOT_FOUND);
 
                 return;
@@ -156,84 +144,145 @@ public class FileUploadProcessor {
      */
     @RequestProcessing(value = "/upload", method = HttpMethod.POST)
     public void uploadFile(final RequestContext context) {
-        if (QN_ENABLED) {
-            return;
-        }
-        final HttpServletRequest request = context.getRequest();
-        final int maxSize = Symphonys.getInt("upload.file.maxSize");
+        final JSONObject result = Results.newFail();
+        context.renderJSONPretty(result);
+
+        final int maxSize = (int) Symphonys.UPLOAD_FILE_MAX;
         final MultipartStreamParser parser = new MultipartStreamParser(new MemoryFileUploadFactory().setMaxFileSize(maxSize));
         try {
-            parser.parseRequestStream(request.getInputStream(), "UTF-8");
+            parser.parseRequestStream(context.getRequest().getInputStream(), "UTF-8");
         } catch (final Exception e) {
             LOGGER.log(Level.ERROR, "Parses request stream failed", e);
+
+            return;
         }
-        final FileUpload file = parser.getFiles("file")[0];
-        String fileName = file.getHeader().getFileName();
-        final String suffix = getSuffix(file);
+        final Map<String, String> succMap = new HashMap<>();
+        final FileUpload[] allFiles = parser.getFiles("file[]");
+        final List<FileUpload> files = new ArrayList<>();
+        String fileName;
 
-        final HttpServletResponse response = context.getResponse();
+        Auth auth;
+        UploadManager uploadManager = null;
+        String uploadToken = null;
+        if (QN_ENABLED) {
+            auth = Auth.create(Symphonys.UPLOAD_QINIU_AK, Symphonys.UPLOAD_QINIU_SK);
+            uploadToken = auth.uploadToken(Symphonys.UPLOAD_QINIU_BUCKET);
+            uploadManager = new UploadManager(new Configuration());
+        }
 
-        final String[] allowedSuffixArray = Symphonys.get("upload.suffix").split(",");
-        if (!Strings.containsIgnoreCase(suffix, allowedSuffixArray)) {
-            final JSONObject data = new JSONObject();
-            data.put("code", 1);
-            data.put("msg", "Invalid suffix [" + suffix + "], please compress this file and try again");
-            data.put("key", Latkes.getServePath() + "/upload/" + fileName);
-            data.put("name", fileName);
-            response.setContentType("application/json");
-            try (final PrintWriter writer = response.getWriter()) {
-                writer.append(data.toString());
-                writer.flush();
-            } catch (final Exception e) {
-                // ignored
+        final JSONObject data = new JSONObject();
+        final List<String> errFiles = new ArrayList<>();
+
+        boolean checkFailed = false;
+        String suffix = "";
+        final String[] allowedSuffixArray = Symphonys.UPLOAD_SUFFIX.split(",");
+        for (int i = 0; i < allFiles.length; i++) {
+            final FileUpload file = allFiles[i];
+            suffix = Headers.getSuffix(file);
+            if (!Strings.containsIgnoreCase(suffix, allowedSuffixArray)) {
+                checkFailed = true;
+
+                break;
             }
+
+            if (maxSize < file.getSize()) {
+                continue;
+            }
+
+            files.add(file);
+        }
+
+        if (checkFailed) {
+            for (final FileUpload file : allFiles) {
+                fileName = file.getHeader().getFileName();
+                errFiles.add(fileName);
+            }
+
+            data.put("errFiles", errFiles);
+            data.put("succMap", succMap);
+            result.put(Common.DATA, data);
+            result.put(Keys.CODE, 1);
+            String msg = langPropsService.get("invalidFileSuffixLabel");
+            msg = StringUtils.replace(msg, "${suffix}", suffix);
+            result.put(Keys.MSG, msg);
 
             return;
         }
 
-        try {
-            final String name = StringUtils.substringBeforeLast(fileName, ".");
-            final String processName = name.replaceAll("\\W", "");
-            final String uuid = StringUtils.substring(UUID.randomUUID().toString().replaceAll("-", ""), 0, 8);
-            fileName = processName + '-' + uuid + "." + suffix;
-            final String date = DateFormatUtils.format(System.currentTimeMillis(), "yyyy/MM");
-            fileName = date + "/" + fileName;
-            final Path path = Paths.get(UPLOAD_DIR, fileName);
-            path.getParent().toFile().mkdirs();
-            try (final OutputStream output = new FileOutputStream(path.toFile());
-                 final InputStream input = file.getFileInputStream()) {
-                IOUtils.copy(input, output);
+        final List<byte[]> fileBytes = new ArrayList<>();
+        if (Symphonys.QN_ENABLED) { // 文件上传性能优化 https://github.com/b3log/symphony/issues/866
+            for (final FileUpload file : files) {
+                try (final InputStream inputStream = file.getFileInputStream()) {
+                    final byte[] bytes = IOUtils.toByteArray(inputStream);
+                    fileBytes.add(bytes);
+                } catch (final Exception e) {
+                    LOGGER.log(Level.ERROR, "Reads input stream failed", e);
+                }
             }
-
-            final JSONObject data = new JSONObject();
-            data.put("code", 0);
-            data.put("key", Latkes.getServePath() + "/upload/" + fileName);
-            data.put("name", fileName);
-            response.setContentType("application/json");
-            try (final PrintWriter writer = response.getWriter()) {
-                writer.append(data.toString());
-                writer.flush();
-            }
-        } catch (final Exception e) {
-            LOGGER.log(Level.ERROR, "Uploads a file failed", e);
         }
+
+        final CountDownLatch countDownLatch = new CountDownLatch(files.size());
+        for (int i = 0; i < files.size(); i++) {
+            final FileUpload file = files.get(i);
+            final String originalName = fileName = Escapes.sanitizeFilename(file.getHeader().getFileName());
+            try {
+                String url;
+                byte[] bytes;
+                suffix = Headers.getSuffix(file);
+                final String name = StringUtils.substringBeforeLast(fileName, ".");
+                final String uuid = StringUtils.substring(UUID.randomUUID().toString().replaceAll("-", ""), 0, 8);
+                fileName = name + '-' + uuid + "." + suffix;
+                fileName = genFilePath(fileName);
+                if (QN_ENABLED) {
+                    bytes = fileBytes.get(i);
+                    final String contentType = file.getHeader().getContentType();
+                    uploadManager.asyncPut(bytes, fileName, uploadToken, null, contentType, false, (key, r) -> {
+                        LOGGER.log(Level.TRACE, "Uploaded [" + key + "], response [" + r.toString() + "]");
+                        countDownLatch.countDown();
+                    });
+                    url = Symphonys.UPLOAD_QINIU_DOMAIN + "/" + fileName;
+                    succMap.put(originalName, url);
+                } else {
+                    final Path path = Paths.get(Symphonys.UPLOAD_LOCAL_DIR, fileName);
+                    path.getParent().toFile().mkdirs();
+                    try (final OutputStream output = new FileOutputStream(path.toFile());
+                         final InputStream input = file.getFileInputStream()) {
+                        IOUtils.copy(input, output);
+
+                        countDownLatch.countDown();
+                    }
+                    url = Latkes.getServePath() + "/upload/" + fileName;
+                    succMap.put(originalName, url);
+                }
+            } catch (final Exception e) {
+                LOGGER.log(Level.ERROR, "Uploads file failed", e);
+
+                errFiles.add(originalName);
+            }
+        }
+
+        try {
+            countDownLatch.await(1, TimeUnit.MINUTES);
+        } catch (final Exception e) {
+            LOGGER.log(Level.ERROR, "Count down latch failed", e);
+        }
+
+        data.put("errFiles", errFiles);
+        data.put("succMap", succMap);
+        result.put(Common.DATA, data);
+        result.put(Keys.CODE, StatusCodes.SUCC);
+        result.put(Keys.MSG, "");
     }
 
-    private static String getSuffix(final FileUpload file) {
-        final String fileName = file.getHeader().getFileName();
-        String ret = StringUtils.substringAfterLast(fileName, ".");
-        if (StringUtils.isNotBlank(ret)) {
-            return ret;
-        }
+    /**
+     * Generates upload file path for the specified file name.
+     *
+     * @param fileName the specified file name
+     * @return "yyyy/MM/fileName"
+     */
+    public static String genFilePath(final String fileName) {
+        final String date = DateFormatUtils.format(System.currentTimeMillis(), "yyyy/MM");
 
-        final String contentType = file.getHeader().getContentType();
-        final String[] exts = MimeTypes.findExtensionsByMimeTypes(contentType, false);
-        if (null != exts && 0 < exts.length) {
-            ret = exts[0];
-        } else {
-            ret = StringUtils.substringAfter(contentType, "/");
-        }
-
-        return ret;
+        return date + "/" + fileName;
     }
 }

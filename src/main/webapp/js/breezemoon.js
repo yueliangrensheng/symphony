@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -19,7 +19,7 @@
  * @fileoverview Breezemoon.
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
- * @version 0.1.0.1, Dec 5, 2018
+ * @version 0.1.0.2, Mar 17, 2019
  */
 
 /**
@@ -109,7 +109,7 @@ var Breezemoon = {
   },
   toggleUpdate: function ($it, id) {
     var $li = $it.closest('li')
-    var $content = $li.find('.content-reset')
+    var $content = $li.find('.vditor-reset')
     if ($li.find('.form').length === 1) {
       $content.show()
       $li.find('.form').remove()

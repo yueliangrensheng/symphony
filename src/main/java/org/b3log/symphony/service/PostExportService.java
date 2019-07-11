@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -37,6 +37,7 @@ import org.b3log.symphony.model.Article;
 import org.b3log.symphony.model.Comment;
 import org.b3log.symphony.model.Pointtransfer;
 import org.b3log.symphony.model.UserExt;
+import org.b3log.symphony.processor.FileUploadProcessor;
 import org.b3log.symphony.repository.ArticleRepository;
 import org.b3log.symphony.repository.CommentRepository;
 import org.b3log.symphony.repository.UserRepository;
@@ -97,7 +98,7 @@ public class PostExportService {
      * @return download URL, returns {@code "-1"} if in sufficient balance, returns {@code null} if other exceptions
      */
     public String exportPosts(final String userId) {
-        final int pointDataExport = Symphonys.getInt("pointDataExport");
+        final int pointDataExport = Symphonys.POINT_DATA_EXPORT;
         try {
             final JSONObject user = userRepository.get(userId);
             final int balance = user.optInt(UserExt.USER_POINT);
@@ -115,11 +116,11 @@ public class PostExportService {
 
         Query query = new Query().setFilter(
                 new PropertyFilter(Article.ARTICLE_AUTHOR_ID, FilterOperator.EQUAL, userId)).
-                addProjection(Keys.OBJECT_ID, String.class).
-                addProjection(Article.ARTICLE_TITLE, String.class).
-                addProjection(Article.ARTICLE_TAGS, String.class).
-                addProjection(Article.ARTICLE_CONTENT, String.class).
-                addProjection(Article.ARTICLE_CREATE_TIME, Long.class);
+                select(Keys.OBJECT_ID,
+                        Article.ARTICLE_TITLE,
+                        Article.ARTICLE_TAGS,
+                        Article.ARTICLE_CONTENT,
+                        Article.ARTICLE_CREATE_TIME);
 
         try {
             final JSONArray articles = articleRepository.get(query).optJSONArray(Keys.RESULTS);
@@ -147,11 +148,8 @@ public class PostExportService {
             return null;
         }
 
-        query = new Query().setFilter(
-                new PropertyFilter(Comment.COMMENT_AUTHOR_ID, FilterOperator.EQUAL, userId)).
-                addProjection(Keys.OBJECT_ID, String.class).
-                addProjection(Comment.COMMENT_CONTENT, String.class).
-                addProjection(Comment.COMMENT_CREATE_TIME, Long.class);
+        query = new Query().setFilter(new PropertyFilter(Comment.COMMENT_AUTHOR_ID, FilterOperator.EQUAL, userId)).
+                select(Keys.OBJECT_ID, Comment.COMMENT_CONTENT, Comment.COMMENT_CREATE_TIME);
 
         try {
             final JSONArray comments = commentRepository.get(query).optJSONArray(Keys.RESULTS);
@@ -189,7 +187,7 @@ public class PostExportService {
         }
 
         final String uuid = UUID.randomUUID().toString().replaceAll("-", "");
-        String fileKey = "export/" + userId + "/" + uuid + ".zip";
+        String fileKey = "export-" + userId + "-" + uuid + ".zip";
 
         final String tmpDir = System.getProperty("java.io.tmpdir");
         String localFilePath = tmpDir + "/" + uuid + ".json";
@@ -208,16 +206,16 @@ public class PostExportService {
             final FileInputStream inputStream = new FileInputStream(zipFile);
             final byte[] zipData = IOUtils.toByteArray(inputStream);
 
-            if (Symphonys.getBoolean("qiniu.enabled")) {
-                final Auth auth = Auth.create(Symphonys.get("qiniu.accessKey"), Symphonys.get("qiniu.secretKey"));
+            if (Symphonys.QN_ENABLED) {
+                final Auth auth = Auth.create(Symphonys.UPLOAD_QINIU_AK, Symphonys.UPLOAD_QINIU_SK);
                 final UploadManager uploadManager = new UploadManager(new Configuration());
-
-                uploadManager.put(zipData, fileKey, auth.uploadToken(Symphonys.get("qiniu.bucket")),
+                uploadManager.put(zipData, fileKey, auth.uploadToken(Symphonys.UPLOAD_QINIU_BUCKET),
                         null, "application/zip", false);
 
-                return Symphonys.get("qiniu.domain") + "/" + fileKey;
+                return Symphonys.UPLOAD_QINIU_DOMAIN + "/" + fileKey;
             } else {
-                final String filePath = Symphonys.get("upload.dir") + fileKey;
+                fileKey = FileUploadProcessor.genFilePath(fileKey);
+                final String filePath = Symphonys.UPLOAD_LOCAL_DIR + fileKey;
 
                 FileUtils.copyFile(zipFile, new File(filePath));
 

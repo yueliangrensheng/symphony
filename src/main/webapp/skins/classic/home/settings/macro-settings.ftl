@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -27,19 +27,14 @@
         </@head>
         <link rel="stylesheet" href="${staticServePath}/css/home.css?${staticResourceVersion}" />
     </head>
-    <body>
+    <body class="fn__flex-column">
         <#include "../../header.ftl">
-        <div class="main">
+        <div class="main fn__flex-1">
             <div class="wrapper">
                 <div class="content">
                     <#nested>
                 </div>
                 <div class="side">
-                    <#if 'profile' == type || 'avatar' == type>
-                        <div id="homeSidePanel" class="fn-none">
-                            <#include "../home-side.ftl">
-                        </div>
-                    </#if>
                     <div class="module">
                         <div class="module-panel fn-oh">
                             <nav class="home-menu">

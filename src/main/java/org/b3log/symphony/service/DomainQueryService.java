@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -40,13 +40,12 @@ import org.jsoup.Jsoup;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Domain query service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.0.0, Apr 1, 2018
+ * @version 1.1.0.1, May 12, 2019
  * @since 1.4.0
  */
 @Service
@@ -91,7 +90,7 @@ public class DomainQueryService {
                 addSort(Domain.DOMAIN_SORT, SortDirection.ASCENDING).
                 addSort(Domain.DOMAIN_TAG_COUNT, SortDirection.DESCENDING).
                 addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).
-                setPageSize(Integer.MAX_VALUE).setPageCount(1);
+                setPage(1, Integer.MAX_VALUE).setPageCount(1);
         try {
             final List<JSONObject> ret = CollectionUtils.jsonArrayToList(domainRepository.get(query).optJSONArray(Keys.RESULTS));
             for (final JSONObject domain : ret) {
@@ -120,7 +119,7 @@ public class DomainQueryService {
                 addSort(Domain.DOMAIN_SORT, SortDirection.ASCENDING).
                 addSort(Domain.DOMAIN_TAG_COUNT, SortDirection.DESCENDING).
                 addSort(Keys.OBJECT_ID, SortDirection.DESCENDING).
-                setPageSize(fetchSize).setPageCount(1);
+                setPage(1, fetchSize).setPageCount(1);
         try {
             final List<JSONObject> ret = CollectionUtils.jsonArrayToList(domainRepository.get(query).optJSONArray(Keys.RESULTS));
             for (final JSONObject domain : ret) {
@@ -286,18 +285,18 @@ public class DomainQueryService {
      * </pre>
      * @see Pagination
      */
-    public JSONObject getDomains(final JSONObject requestJSONObject, final Map<String, Class<?>> domainFields) {
+    public JSONObject getDomains(final JSONObject requestJSONObject, final List<String> domainFields) {
         final JSONObject ret = new JSONObject();
 
         final int currentPageNum = requestJSONObject.optInt(Pagination.PAGINATION_CURRENT_PAGE_NUM);
         final int pageSize = requestJSONObject.optInt(Pagination.PAGINATION_PAGE_SIZE);
         final int windowSize = requestJSONObject.optInt(Pagination.PAGINATION_WINDOW_SIZE);
-        final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize).
+        final Query query = new Query().setPage(currentPageNum, pageSize).
                 addSort(Domain.DOMAIN_SORT, SortDirection.ASCENDING).
                 addSort(Domain.DOMAIN_TAG_COUNT, SortDirection.DESCENDING).
                 addSort(Keys.OBJECT_ID, SortDirection.DESCENDING);
-        for (final Map.Entry<String, Class<?>> field : domainFields.entrySet()) {
-            query.addProjection(field.getKey(), field.getValue());
+        for (final String field : domainFields) {
+            query.select(field);
         }
 
         if (requestJSONObject.has(Domain.DOMAIN_TITLE)) {

@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -36,6 +36,7 @@ import org.b3log.symphony.event.EventTypes;
 import org.b3log.symphony.model.*;
 import org.b3log.symphony.repository.*;
 import org.b3log.symphony.util.Emotions;
+import org.b3log.symphony.util.Runes;
 import org.b3log.symphony.util.Symphonys;
 import org.json.JSONObject;
 
@@ -47,7 +48,7 @@ import java.util.Locale;
  * Comment management service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 2.15.0.1, Dec 16, 2018
+ * @version 2.15.0.5, Apr 1, 2019
  * @since 0.2.0
  */
 @Service
@@ -314,7 +315,7 @@ public class CommentMgmtService {
                 throw new ServiceException(langPropsService.get("thankSelfLabel"));
             }
 
-            final int rewardPoint = Symphonys.getInt("pointThankComment");
+            final int rewardPoint = Symphonys.POINT_THANK_COMMENT;
 
             if (rewardQueryService.isRewarded(senderId, commentId, Reward.TYPE_C_COMMENT)) {
                 return;
@@ -406,14 +407,12 @@ public class CommentMgmtService {
         final int commentVisible = requestJSONObject.optInt(Comment.COMMENT_VISIBLE);
         final int commentViewMode = requestJSONObject.optInt(UserExt.USER_COMMENT_VIEW_MODE);
 
-        if (currentTimeMillis - commenter.optLong(UserExt.USER_LATEST_CMT_TIME) < Symphonys.getLong("minStepCmtTime")
+        if (currentTimeMillis - commenter.optLong(UserExt.USER_LATEST_CMT_TIME) < Symphonys.MIN_STEP_CMT_TIME
                 && !Role.ROLE_ID_C_ADMIN.equals(commenter.optString(User.USER_ROLE))
                 && !UserExt.COM_BOT_NAME.equals(commenter.optString(User.USER_NAME))) {
             LOGGER.log(Level.WARN, "Adds comment too frequent [userName={0}]", commenter.optString(User.USER_NAME));
             throw new ServiceException(langPropsService.get("tooFrequentCmtLabel"));
         }
-
-        final String commenterName = commenter.optString(User.USER_NAME);
 
         JSONObject article;
         try {
@@ -427,7 +426,7 @@ public class CommentMgmtService {
             final int balance = commenter.optInt(UserExt.USER_POINT);
 
             if (Comment.COMMENT_ANONYMOUS_C_ANONYMOUS == commentAnonymous) {
-                final int anonymousPoint = Symphonys.getInt("anonymous.point");
+                final int anonymousPoint = Symphonys.ANONYMOUS_POST_POINT;
                 if (balance < anonymousPoint) {
                     String anonymousEnabelPointLabel = langPropsService.get("anonymousEnabelPointLabel");
                     anonymousEnabelPointLabel
@@ -438,18 +437,15 @@ public class CommentMgmtService {
 
             article = articleRepository.get(articleId);
 
-            if (!TuringQueryService.ROBOT_NAME.equals(commenterName)) {
-                int pointSum = Pointtransfer.TRANSFER_SUM_C_ADD_COMMENT;
+            int pointSum = Pointtransfer.TRANSFER_SUM_C_ADD_COMMENT;
 
-                // Point
-                final String articleAuthorId = article.optString(Article.ARTICLE_AUTHOR_ID);
-                if (articleAuthorId.equals(commentAuthorId)) {
-                    pointSum = Pointtransfer.TRANSFER_SUM_C_ADD_SELF_ARTICLE_COMMENT;
-                }
+            final String articleAuthorId = article.optString(Article.ARTICLE_AUTHOR_ID);
+            if (articleAuthorId.equals(commentAuthorId)) {
+                pointSum = Pointtransfer.TRANSFER_SUM_C_ADD_SELF_ARTICLE_COMMENT;
+            }
 
-                if (balance - pointSum < 0) {
-                    throw new ServiceException(langPropsService.get("insufficientBalanceLabel"));
-                }
+            if (balance - pointSum < 0) {
+                throw new ServiceException(langPropsService.get("insufficientBalanceLabel"));
             }
         } catch (final RepositoryException e) {
             throw new ServiceException(e);
@@ -471,9 +467,6 @@ public class CommentMgmtService {
             final JSONObject comment = new JSONObject();
             comment.put(Keys.OBJECT_ID, ret);
 
-            String content = requestJSONObject.optString(Comment.COMMENT_CONTENT).
-                    replace("_esc_enter_88250_", "<br/>"); // Solo client escape
-
             comment.put(Comment.COMMENT_AUTHOR_ID, commentAuthorId);
             comment.put(Comment.COMMENT_ON_ARTICLE_ID, articleId);
 
@@ -489,6 +482,7 @@ public class CommentMgmtService {
                 notificationMgmtService.makeRead(commentAuthorId, Arrays.asList(originalCmtId));
             }
 
+            String content = requestJSONObject.optString(Comment.COMMENT_CONTENT);
             content = Emotions.toAliases(content);
             content = content.replaceAll("\\s+$", ""); // https://github.com/b3log/symphony/issues/389
             content += " "; // in case of tailing @user
@@ -554,22 +548,16 @@ public class CommentMgmtService {
             // Revision
             final JSONObject revision = new JSONObject();
             revision.put(Revision.REVISION_AUTHOR_ID, comment.optString(Comment.COMMENT_AUTHOR_ID));
-
             final JSONObject revisionData = new JSONObject();
             revisionData.put(Comment.COMMENT_CONTENT, content);
-
             revision.put(Revision.REVISION_DATA, revisionData.toString());
             revision.put(Revision.REVISION_DATA_ID, commentId);
             revision.put(Revision.REVISION_DATA_TYPE, Revision.DATA_TYPE_C_COMMENT);
-
             revisionRepository.add(revision);
 
             transaction.commit();
 
-            if (Comment.COMMENT_ANONYMOUS_C_PUBLIC == commentAnonymous
-                    && Article.ARTICLE_ANONYMOUS_C_PUBLIC == articleAnonymous
-                    && !TuringQueryService.ROBOT_NAME.equals(commenterName)) {
-                // Point
+            if (Comment.COMMENT_ANONYMOUS_C_PUBLIC == commentAnonymous && Article.ARTICLE_ANONYMOUS_C_PUBLIC == articleAnonymous) {
                 final String articleAuthorId = article.optString(Article.ARTICLE_AUTHOR_ID);
                 if (articleAuthorId.equals(commentAuthorId)) {
                     pointtransferMgmtService.transfer(commentAuthorId, Pointtransfer.ID_C_SYS,
@@ -584,7 +572,6 @@ public class CommentMgmtService {
                 livenessMgmtService.incLiveness(commentAuthorId, Liveness.LIVENESS_COMMENT);
             }
 
-            // Event
             final JSONObject eventData = new JSONObject();
             eventData.put(Comment.COMMENT, comment);
             eventData.put(Article.ARTICLE, article);
@@ -628,22 +615,24 @@ public class CommentMgmtService {
             content += " "; // in case of tailing @user
             content = content.replace(langPropsService.get("uploadingLabel", Locale.SIMPLIFIED_CHINESE), "");
             content = content.replace(langPropsService.get("uploadingLabel", Locale.US), "");
+            content = Runes.removeControlChars(content);
             comment.put(Comment.COMMENT_CONTENT, content);
 
             commentRepository.update(commentId, comment);
 
-            if (!oldContent.equals(content)) {
-                // Revision
+            final long now = System.currentTimeMillis();
+            final long createTime = comment.optLong(Keys.OBJECT_ID);
+            final boolean notIn5m = now - createTime > 1000 * 60 * 5;
+
+            final boolean contentChanged = !oldContent.replaceAll("\\s+", "").equals(content.replaceAll("\\s+", ""));
+            if (notIn5m && contentChanged) {
                 final JSONObject revision = new JSONObject();
                 revision.put(Revision.REVISION_AUTHOR_ID, commentAuthorId);
-
                 final JSONObject revisionData = new JSONObject();
                 revisionData.put(Comment.COMMENT_CONTENT, content);
-
                 revision.put(Revision.REVISION_DATA, revisionData.toString());
                 revision.put(Revision.REVISION_DATA_ID, commentId);
                 revision.put(Revision.REVISION_DATA_TYPE, Revision.DATA_TYPE_C_COMMENT);
-
                 revisionRepository.add(revision);
             }
 
@@ -655,17 +644,13 @@ public class CommentMgmtService {
 
             if (Comment.COMMENT_ANONYMOUS_C_PUBLIC == commentAnonymous
                     && Article.ARTICLE_ANONYMOUS_C_PUBLIC == articleAnonymous) {
-                // Point
-                final long now = System.currentTimeMillis();
-                final long createTime = comment.optLong(Keys.OBJECT_ID);
-                if (now - createTime > 1000 * 60 * 5) {
+                if (notIn5m) {
                     pointtransferMgmtService.transfer(commentAuthorId, Pointtransfer.ID_C_SYS,
                             Pointtransfer.TRANSFER_TYPE_C_UPDATE_COMMENT,
                             Pointtransfer.TRANSFER_SUM_C_UPDATE_COMMENT, commentId, now, "");
                 }
             }
 
-            // Event
             final JSONObject eventData = new JSONObject();
             eventData.put(Article.ARTICLE, article);
             eventData.put(Comment.COMMENT, comment);
@@ -699,15 +684,13 @@ public class CommentMgmtService {
                 return;
             }
 
-            final JSONObject oldComment = commentRepository.get(commentId);
-            final String oldContent = oldComment.optString(Comment.COMMENT_CONTENT);
-
             String content = comment.optString(Comment.COMMENT_CONTENT);
             content = Emotions.toAliases(content);
             content = content.replaceAll("\\s+$", ""); // https://github.com/b3log/symphony/issues/389
             content += " "; // in case of tailing @user
             content = content.replace(langPropsService.get("uploadingLabel", Locale.SIMPLIFIED_CHINESE), "");
             content = content.replace(langPropsService.get("uploadingLabel", Locale.US), "");
+            content = Runes.removeControlChars(content);
             comment.put(Comment.COMMENT_CONTENT, content);
 
             commentRepository.update(commentId, comment);

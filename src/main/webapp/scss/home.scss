@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -20,7 +20,7 @@
  *
  * @author <a href="http://vanessa.b3log.org">Liyuan Li</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 2.13.0.0, Jul 11, 2018
+ * @version 2.13.0.2, Mar 17, 2019
  */
 @import "variables";
 
@@ -201,11 +201,6 @@
     margin: 2px 5px 0 0;
   }
 
-  .cm-s-default.CodeMirror {
-    border: 0;
-    margin-bottom: 0;
-  }
-
   .wrapper {
     display: block;
   }
@@ -237,18 +232,6 @@
     background-color: $blue-lighter;
   }
 
-  #articleContent {
-    height: 332px;
-    margin: 30px 0 20px 0;
-    padding: 4px;
-  }
-
-  #articleRewardContent {
-    height: 102px;
-    margin: 30px 0 20px 0;
-    padding: 4px;
-  }
-
   #showReward {
     color: #999;
     width: 75%;
@@ -269,7 +252,8 @@
   }
 
   .tags-input,
-  #articleRewardPoint {
+  #articleRewardPoint,
+  #articleAskPoint {
     background-color: #fff;
     padding: 5px 10px;
     width: 100%;
@@ -411,7 +395,7 @@
   background-color: #F8F8FF;
 }
 
-.notification .content-reset > p {
+.notification .vditor-reset > p {
   margin-bottom: 0;
 }
 

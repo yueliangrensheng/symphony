@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -29,7 +29,7 @@ import org.b3log.latke.util.Locales;
 import org.b3log.symphony.model.*;
 import org.b3log.symphony.service.RoleQueryService;
 import org.b3log.symphony.service.UserQueryService;
-import org.b3log.symphony.util.Skins;
+import org.b3log.symphony.util.Templates;
 import org.json.JSONObject;
 
 import javax.websocket.*;
@@ -179,7 +179,7 @@ public class ArticleChannel {
                 }
 
                 final String templateDirName = (String) session.getUserProperties().get(Keys.TEMAPLTE_DIR_NAME);
-                final Template template = Skins.SKIN.getTemplate(templateDirName + "/common/comment.ftl");
+                final Template template = Templates.getTemplate(templateDirName + "/common/comment.ftl");
                 final StringWriter stringWriter = new StringWriter();
                 template.process(dataModel, stringWriter);
                 stringWriter.close();

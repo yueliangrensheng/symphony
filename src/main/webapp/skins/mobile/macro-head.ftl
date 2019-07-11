@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -29,8 +29,5 @@
 <link rel="stylesheet" href="${staticServePath}/css/mobile-base.css?${staticResourceVersion}" />
 <link rel="icon" type="image/png" href="${staticServePath}/images/favicon.png" />
 <link rel="apple-touch-icon" href="${staticServePath}/images/faviconH.png">
-<#if !isAdminLoggedIn>
 ${siteVisitStatCode}
-</#if>
-${macroHeadMobileCode}
 </#macro>

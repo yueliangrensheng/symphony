@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -36,7 +36,7 @@ import java.util.Set;
 /**
  * Emotion management service.
  *
- * @author Zephyr
+ * @author <a href="http://zephyr.b3log.org">Zephyr</a>
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @version 1.0.2.0, Aug 19, 2016
  * @since 1.5.0
@@ -67,7 +67,7 @@ public class EmotionMgmtService {
 
         try {
             // clears the user all emotions
-            emotionRepository.removeUserEmotions(userId);
+            emotionRepository.removeByUserId(userId);
 
             final Set<String> emotionSet = new HashSet<>(); // for deduplication
             final String[] emotionArray = emotionList.split(",");

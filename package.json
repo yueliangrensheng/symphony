@@ -1,6 +1,6 @@
 {
   "name": "Symphony",
-  "version": "3.4.5",
+  "version": "3.5.0",
   "description": "A modern community (forum/BBS/SNS/blog) platform written in Java. 一款用 Java 实现的现代化社区（论坛/BBS/社交网络/博客）平台。",
   "homepage": "https://sym.b3log.org",
   "repository": {
@@ -29,13 +29,15 @@
   ],
   "devDependencies": {
     "del": "^3.0.0",
-    "gulp": "^4.0.0",
-    "gulp-clean-css": "^3.10.0",
+    "gulp": "^4.0.1",
+    "gulp-clean-css": "^4.0.0",
     "gulp-concat": "^2.6.1",
     "gulp-rename": "^1.4.0",
-    "gulp-sass": "^4.0.1",
+    "gulp-sass": "^4.0.2",
     "gulp-uglify": "^3.0.1",
-    "gulp-util": "^3.0.8",
-    "marked": "^0.5.1"
+    "gulp-util": "^3.0.8"
+  },
+  "dependencies": {
+    "vditor": "^1.5.7"
   }
 }

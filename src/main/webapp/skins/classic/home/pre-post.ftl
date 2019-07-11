@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -51,7 +51,7 @@
                     </a>
                     <div class="ft-gray">
                         ${addThoughtArticleTipLabel}
-                        <a href="https://hacpai.com/article/1441942422856" target="_blank">(?)</a>
+                        <a href="${servePath}/about" target="_blank">(?)</a>
                     </div>
                 </div>
                 <div>

@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -19,12 +19,13 @@ package org.b3log.symphony.util;
 
 
 import org.apache.commons.lang.StringUtils;
+import org.b3log.symphony.processor.FileUploadProcessor;
 
 /**
  * Image utilities.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.1, Nov 4, 2018
+ * @version 1.0.0.2, Feb 10, 2019
  * @since 3.2.0
  */
 public final class Images {
@@ -38,12 +39,11 @@ public final class Images {
     public static String qiniuImgProcessing(final String content) {
         String ret = content;
 
-        final boolean qiniuEnabled = Symphonys.getBoolean("qiniu.enabled");
-        if (!qiniuEnabled) {
+        if (!Symphonys.QN_ENABLED) {
             return ret;
         }
 
-        final String qiniuDomain = Symphonys.get("qiniu.domain");
+        final String qiniuDomain = Symphonys.UPLOAD_QINIU_DOMAIN;
         final String html = Markdowns.toHTML(content);
 
         final String[] imgSrcs = StringUtils.substringsBetween(html, "<img src=\"", "\"");
@@ -57,7 +57,7 @@ public final class Images {
                 continue;
             }
 
-            ret = StringUtils.replace(ret, imgSrc, imgSrc + "?imageView2/2/w/768/format/jpg/interlace/0/q");
+            ret = StringUtils.replace(ret, imgSrc, imgSrc + "?imageView2/2/w/768/format/webp/interlace/1");
         }
 
         return ret;

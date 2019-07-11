@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -40,6 +40,15 @@
                         <svg><use xlink:href="#iconAsk"></use></svg> ${qnaLabel}
                     </a>
                     <div class="ft-fade">${addAskArticleTipLabel}</div>
+                </div>
+                <div>
+                    <a href="${servePath}/post?type=3">
+                        <svg><use xlink:href="#video"></use></svg>${thoughtLabel}
+                    </a>
+                    <div class="ft-fade">
+                    ${addThoughtArticleTipLabel}
+                        <a href="${servePath}/about" target="_blank">(?)</a>
+                    </div>
                 </div>
                 <div>
                     <a href="${servePath}/post?type=1&tags=${discussionLabel}">

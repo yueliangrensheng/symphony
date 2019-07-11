@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -35,6 +35,7 @@ import org.b3log.symphony.processor.advice.stopwatch.StopwatchStartAdvice;
 import org.b3log.symphony.service.DataModelService;
 import org.b3log.symphony.service.LinkMgmtService;
 import org.b3log.symphony.util.Headers;
+import org.b3log.symphony.util.Sessions;
 import org.b3log.symphony.util.Symphonys;
 import org.json.JSONObject;
 
@@ -49,7 +50,7 @@ import java.util.Map;
  * </ul>
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.0.0.3, Nov 21, 2018
+ * @version 1.0.0.5, Jan 17, 2019
  * @since 2.3.0
  */
 @RequestProcessor
@@ -80,7 +81,7 @@ public class ForwardProcessor {
         final HttpServletRequest request = context.getRequest();
         final HttpServletResponse response = context.getResponse();
 
-        String to = request.getParameter(Common.GOTO);
+        String to = context.param(Common.GOTO);
         if (StringUtils.isBlank(to)) {
             to = Latkes.getServePath();
         }
@@ -93,22 +94,18 @@ public class ForwardProcessor {
         }
 
         final String url = to;
-        Symphonys.EXECUTOR_SERVICE.submit(() -> {
-            linkMgmtService.addLink(url);
-        });
+        Symphonys.EXECUTOR_SERVICE.submit(() -> linkMgmtService.addLink(url));
 
-        final JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        final JSONObject user = Sessions.getUser();
         if (null != user && UserExt.USER_XXX_STATUS_C_DISABLED == user.optInt(UserExt.USER_FORWARD_PAGE_STATUS)) {
             context.sendRedirect(to);
 
             return;
         }
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("forward.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "forward.ftl");
         final Map<String, Object> dataModel = renderer.getDataModel();
         dataModel.put("forwardURL", to);
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
     }
 }

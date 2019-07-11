@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -26,22 +26,21 @@
         <meta name="robots" content="none" />
         </@head>
         <link rel="stylesheet" href="${staticServePath}/css/home.css?${staticResourceVersion}" />
-        <link rel="stylesheet" href="${staticServePath}/js/lib/editor/codemirror.min.css?${staticResourceVersion}">
-        <link rel="stylesheet" href="${staticServePath}/js/lib/highlight/styles/github.css">
     </head>
     <body>
         <#include "../header.ftl">
         <div class="main post">
-            <div class="form fn-flex-1 fn-clear">
+            <div class="fn-flex-1 fn-clear">
                 <input type="text" id="articleTitle" autocomplete="off" tabindex="1"<#if requisite> readonly disabled</#if>
                        value="<#if article??>${article.articleTitle}</#if>" placeholder="${titleLabel}" />
                 <div class="post-article-content">
-                    <textarea id="articleContent" tabindex="2"
-                              placeholder="<#if !article?? && 1 == articleType>${addDiscussionEditorPlaceholderLabel}</#if>${addArticleEditorPlaceholderLabel}"><#if article??>${article.articleContent?html}</#if><#if at??>@${at}</#if></textarea>
+                    <div id="articleContent"
+                         data-placeholder="<#if !article?? && 1 == articleType>${addDiscussionEditorPlaceholderLabel}</#if>${addArticleEditorPlaceholderLabel}"></div>
+                    <textarea class="fn-none"><#if article??>${article.articleContent?html}</#if><#if at??>@${at}</#if></textarea>
                 </div>
                 <div class="tags-wrap">
-                    <div class="tags-input"><span class="tags-selected"></span>
-                    <input id="articleTags" type="text" tabindex="3"<#if requisite> readonly disabled</#if>
+                    <div class="tags-input fn-flex"><span class="tags-selected"></span>
+                    <input class="fn-flex-1" id="articleTags" type="text" tabindex="3"<#if requisite> readonly disabled</#if>
                            value="<#if article??>${article.articleTags}<#else>${tags}</#if>" placeholder="${tagLabel}（${tagSeparatorTipLabel}）" autocomplete="off" />
                     </div>
                     <#if addArticleDomains?size != 0>
@@ -74,8 +73,9 @@
                 </button>
                 <div class="fn-none">
                     <div class="fn-clear article-reward-content">
-                        <textarea id="articleRewardContent" tabindex="4"
-                                  placeholder="${rewardEditorPlaceholderLabel}"><#if article??>${article.articleRewardContent}</#if></textarea>
+                        <div id="articleRewardContent"
+                                  data-placeholder="${rewardEditorPlaceholderLabel}"></div>
+                        <textarea class="fn-none"><#if article??>${article.articleRewardContent}</#if></textarea>
                     </div>
                     <div>
                         <input id="articleRewardPoint" type="number" tabindex="5" min="1"
@@ -141,7 +141,7 @@
                     <#elseif 3 == articleType>
                         <svg class="post__info"><use xlink:href="#video"></use></svg> ${thoughtLabel}
                         <span class="ft-gray">${addThoughtArticleTipLabel}
-                        <a href="https://hacpai.com/article/1441942422856" target="_blank">(?)</a></span>
+                        <a href="${servePath}/about" target="_blank">(?)</a></span>
                     <#elseif 5 == articleType>
                         <svg class="post__info">
                             <use xlink:href="#iconAsk"></use>
@@ -154,9 +154,11 @@
                                 <#if article??> disabled="disabled"<#if 1 == article.articleAnonymous> checked</#if></#if>
                                 type="checkbox" id="articleAnonymous"></label>
                         </#if>
+                        <label class="article-anonymous">&nbsp;  ${showInListLabel}<input
+                                <#if (article?? && (1 == article.articleShowInList)) || !article??> checked="checked"</#if> type="checkbox" id="articleShowInList"></label>
                         <label class="article-anonymous">&nbsp;  ${commentableLabel}<input
-                                <#if (article?? && article.articleCommentable) || !article??> checked="checked"</#if>
-                                                                                              type="checkbox" id="articleCommentable"></label>
+                                <#if (article?? && article.articleCommentable) || !article??> checked="checked"</#if> type="checkbox" id="articleCommentable"></label>
+                        <label class="article-anonymous">&nbsp;  ${notifyFollowersLabel}<input type="checkbox" id="articleNotifyFollowers"></label>
                         <#if article?? && permissions["commonRemoveArticle"].permissionGrant>
                             <button class="red" tabindex="11" onclick="AddArticle.remove('${csrfToken}', this)">${removeArticleLabel}</button>
                         </#if>
@@ -176,9 +178,6 @@
             </div>
         </div>
         <#include "../footer.ftl">
-        <script src="${staticServePath}/js/lib/editor/codemirror.min.js?${staticResourceVersion}"></script>
-        <script src="${staticServePath}/js/lib/highlight/highlight.pack.js"></script>
-        <script src="${staticServePath}/js/lib/jquery/file-upload-9.10.1/jquery.fileupload.min.js"></script>
         <script src="${staticServePath}/js/lib/sound-recorder/SoundRecorder.js"></script>
         <script>
             Label.articleTitleErrorLabel = "${articleTitleErrorLabel}";
@@ -205,36 +204,15 @@
             Label.uploadFileLabel = '${uploadFileLabel}';
             Label.discussionLabel = '${discussionLabel}';
             Label.insertEmojiLabel = '${insertEmojiLabel}';
-            Label.qiniuDomain = '${qiniuDomain}';
-            Label.qiniuUploadToken = '${qiniuUploadToken}';
             Label.commonAtUser = '${permissions["commonAtUser"].permissionGrant?c}';
             Label.requisite = ${requisite?c};
             <#if article??>Label.articleOId = '${article.oId}' ;</#if>
             Label.articleType = ${articleType};
             Label.confirmRemoveLabel = '${confirmRemoveLabel}';
         </script>
+        <#if 3 == articleType>
+        <script src="${staticServePath}/js/lib/diff2html/diff.min.js"></script>
+        </#if>
         <script src="${staticServePath}/js/add-article${miniPostfix}.js?${staticResourceVersion}"></script>
-        <script>
-            Util.uploadFile({
-                "id": "fileUpload",
-                "pasteZone": $("#articleContent").next().next(),
-                "qiniuUploadToken": "${qiniuUploadToken}",
-                "editor": AddArticle.editor,
-                "uploadingLabel": "${uploadingLabel}",
-                "qiniuDomain": "${qiniuDomain}",
-                "imgMaxSize": ${imgMaxSize?c},
-                "fileMaxSize": ${fileMaxSize?c}
-            });
-            Util.uploadFile({
-                "id": "rewardFileUpload",
-                "pasteZone": $("#articleRewardContent").next().next(),
-                "qiniuUploadToken": "${qiniuUploadToken}",
-                "editor": AddArticle.rewardEditor,
-                "uploadingLabel": "${uploadingLabel}",
-                "qiniuDomain": "${qiniuDomain}",
-                "imgMaxSize": ${imgMaxSize?c},
-                "fileMaxSize": ${fileMaxSize?c}
-            });
-        </script>
     </body>
 </html>

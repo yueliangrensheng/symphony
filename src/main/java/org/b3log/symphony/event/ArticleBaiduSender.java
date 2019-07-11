@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -38,7 +38,7 @@ import org.json.JSONObject;
  * Sends an article URL to Baidu.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.1.3.3, Nov 3, 2018
+ * @version 1.1.3.4, Jan 12, 2019
  * @since 1.3.0
  */
 @Singleton
@@ -50,16 +50,15 @@ public class ArticleBaiduSender extends AbstractEventListener<JSONObject> {
     private static final Logger LOGGER = Logger.getLogger(ArticleBaiduSender.class);
 
     /**
-     * Baidu data token.
-     */
-    private static final String TOKEN = Symphonys.get("baidu.data.token");
-
-    /**
      * Sends the specified URLs to Baidu.
      *
      * @param urls the specified URLs
      */
     public static void sendToBaidu(final String... urls) {
+        if (Latkes.RuntimeMode.PRODUCTION != Latkes.getRuntimeMode() || StringUtils.isBlank(Symphonys.BAIDU_DATA_TOKEN)) {
+            return;
+        }
+
         if (ArrayUtils.isEmpty(urls)) {
             return;
         }
@@ -67,7 +66,7 @@ public class ArticleBaiduSender extends AbstractEventListener<JSONObject> {
         Symphonys.EXECUTOR_SERVICE.submit(() -> {
             try {
                 final String urlsStr = StringUtils.join(urls, "\n");
-                final HttpResponse response = HttpRequest.post("http://data.zz.baidu.com/urls?site=" + Latkes.getServerHost() + "&token=" + TOKEN).
+                final HttpResponse response = HttpRequest.post("http://data.zz.baidu.com/urls?site=" + Latkes.getServerHost() + "&token=" + Symphonys.BAIDU_DATA_TOKEN).
                         header(Common.USER_AGENT, "curl/7.12.1").
                         header("Host", "data.zz.baidu.com").
                         header("Content-Type", "text/plain").
@@ -85,7 +84,7 @@ public class ArticleBaiduSender extends AbstractEventListener<JSONObject> {
         final JSONObject data = event.getData();
         LOGGER.log(Level.TRACE, "Processing an event [type={0}, data={1}]", event.getType(), data);
 
-        if (Latkes.RuntimeMode.PRODUCTION != Latkes.getRuntimeMode() || StringUtils.isBlank(TOKEN)) {
+        if (Latkes.RuntimeMode.PRODUCTION != Latkes.getRuntimeMode() || StringUtils.isBlank(Symphonys.BAIDU_DATA_TOKEN)) {
             return;
         }
 

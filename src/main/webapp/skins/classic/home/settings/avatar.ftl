@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -40,7 +40,6 @@
                     ${uploadLabel}<input type="file" name="file">
                 </label>
             </form>
-            <label class="btn green" onclick="Settings.preview(this)">${previewLabel}</label>
         </div>
     </div>
 </div>
@@ -50,7 +49,6 @@
 <script>
         Settings.initUploadAvatar({
             id: 'avatarUpload',
-            qiniuUploadToken: '${qiniuUploadToken}',
             userId: '${currentUser.oId}',
             maxSize: '${imgMaxSize?c}'
         }, function (data) {
@@ -58,14 +56,6 @@
             $('#avatarURL').css("background-image", 'url(' + uploadKey + ')').data('imageurl', uploadKey);
             $('#avatarURLMid').css("background-image", 'url(' + uploadKey + ')').data('imageurl', uploadKey);
             $('#avatarURLNor').css("background-image", 'url(' + uploadKey + ')').data('imageurl', uploadKey);
-
-            Settings.updateAvatar('${csrfToken}');
-        }, function (data) {
-            var qiniuKey = data.result.key,
-                    t = new Date().getTime();
-            $('#avatarURL').css("background-image", 'url(${qiniuDomain}/' + qiniuKey + '?' + t + ')').data('imageurl', '${qiniuDomain}/' + qiniuKey);
-            $('#avatarURLMid').css("background-image", 'url(${qiniuDomain}/' + qiniuKey + '?' + t + ')').data('imageurl', '${qiniuDomain}/' + qiniuKey);
-            $('#avatarURLNor').css("background-image", 'url(${qiniuDomain}/' + qiniuKey + '?' + t + ')').data('imageurl', '${qiniuDomain}/' + qiniuKey);
 
             Settings.updateAvatar('${csrfToken}');
         });

@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -21,6 +21,7 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang.StringUtils;
 import org.b3log.latke.logging.Level;
 import org.b3log.latke.logging.Logger;
+import org.b3log.latke.util.Strings;
 import org.b3log.symphony.model.Common;
 import org.json.JSONObject;
 
@@ -60,8 +61,8 @@ public final class Geos {
      * </pre>, returns {@code null} if not found
      */
     public static JSONObject getAddress(final String ip) {
-        final String ak = Symphonys.get("baidu.lbs.ak");
-        if (StringUtils.isBlank(ak) || !Networks.isIPv4(ip)) {
+        final String ak = Symphonys.BAIDU_LBS_AK;
+        if (StringUtils.isBlank(ak) || !Strings.isIPv4(ip)) {
             return null;
         }
 

@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -36,7 +36,6 @@
         </#if>
         <#if type == "comments">
         <@head title="${commentAdminLabel} - ${symphonyLabel}">
-        <link rel="stylesheet" href="${staticServePath}/js/lib/highlight/styles/github.css">
         </@head>
         </#if>
         <#if type == "breezemoons">
@@ -144,7 +143,8 @@
         <#if type == "comments">
         <script src="${staticServePath}/js/settings${miniPostfix}.js?${staticResourceVersion}"></script>
         <script>
-            Settings.initHljs();
+            Util.parseHljs()
+            Util.parseMarkdown()
         </script>
         <#elseif type == 'reports'>
         <script>

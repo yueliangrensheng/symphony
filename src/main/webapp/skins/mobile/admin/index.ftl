@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -20,14 +20,14 @@
 <#include "macro-admin.ftl">
 <@admin "index">
 <div class="wrapper">
-    <div class="content-reset ft-blue">
+    <div class="vditor-reset ft-blue">
         <ul>
             <li>Sym 社区版使用 AGPL 开源协议，请务必保证所有代码及其衍生代码开源，并在页脚放置开源库地址</li>
             <li>云南链滴科技有限公司保留追究侵权人法律责任的权利</li>
         </ul>
     </div>
     <div class="fn-hr10"></div>
-    <div class="content-reset">
+    <div class="vditor-reset">
         <ul>
             <li>${onlineVisitorCountLabel} ${onlineVisitorCnt?c}</li>
             <li>${onlineMemberCountLabel} ${onlineMemberCnt?c}</li>

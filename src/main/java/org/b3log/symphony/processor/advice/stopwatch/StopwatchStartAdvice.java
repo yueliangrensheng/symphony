@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -35,6 +35,6 @@ public class StopwatchStartAdvice extends ProcessAdvice {
     @Override
     public void doAdvice(final RequestContext context) {
         final String requestURI = context.getRequest().getRequestURI();
-        Stopwatchs.start("Request URI [" + requestURI + ']');
+        Stopwatchs.start("Request URI [" + requestURI + "]");
     }
 }

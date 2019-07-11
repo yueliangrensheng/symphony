@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -48,7 +48,7 @@ import java.util.Set;
  * Sends article add related notifications.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.3.4.18, Dec 10, 2018
+ * @version 1.3.4.19, Apr 9, 2019
  * @since 0.2.0
  */
 @Singleton
@@ -124,12 +124,13 @@ public class ArticleAddNotifier extends AbstractEventListener<JSONObject> {
             final String tags = originalArticle.optString(Article.ARTICLE_TAGS);
 
             // 'following - user' Notification
-            if (Article.ARTICLE_TYPE_C_DISCUSSION != originalArticle.optInt(Article.ARTICLE_TYPE)
+            final boolean articleNotifyFollowers = data.optBoolean(Article.ARTICLE_T_NOTIFY_FOLLOWERS);
+            if (articleNotifyFollowers
+                    && Article.ARTICLE_TYPE_C_DISCUSSION != originalArticle.optInt(Article.ARTICLE_TYPE)
                     && Article.ARTICLE_ANONYMOUS_C_PUBLIC == originalArticle.optInt(Article.ARTICLE_ANONYMOUS)
                     && !Tag.TAG_TITLE_C_SANDBOX.equals(tags)
-                    && !StringUtils.containsIgnoreCase(tags, Symphonys.get("systemAnnounce"))) {
-                final JSONObject followerUsersResult = followQueryService.getFollowerUsers(
-                        UserExt.USER_AVATAR_VIEW_MODE_C_ORIGINAL, articleAuthorId, 1, Integer.MAX_VALUE);
+                    && !StringUtils.containsIgnoreCase(tags, Symphonys.SYS_ANNOUNCE_TAG)) {
+                final JSONObject followerUsersResult = followQueryService.getFollowerUsers(articleAuthorId, 1, Integer.MAX_VALUE);
                 final List<JSONObject> followerUsers = (List<JSONObject>) followerUsersResult.opt(Keys.RESULTS);
                 final long thirtyDaysAgo = DateUtils.addDays(new Date(), -30).getTime();
                 for (final JSONObject followerUser : followerUsers) {
@@ -184,7 +185,7 @@ public class ArticleAddNotifier extends AbstractEventListener<JSONObject> {
             }
 
             // 'Sys Announce' Notification
-            if (StringUtils.containsIgnoreCase(tags, Symphonys.get("systemAnnounce"))) {
+            if (StringUtils.containsIgnoreCase(tags, Symphonys.SYS_ANNOUNCE_TAG)) {
                 final long latestLoginTime = DateUtils.addDays(new Date(), -15).getTime();
 
                 final JSONObject result = userQueryService.getLatestLoggedInUsers(

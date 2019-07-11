@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -35,7 +35,7 @@ import java.util.List;
  * Tag repository.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
- * @version 1.2.0.2, Aug 27, 2018
+ * @version 1.2.0.3, Jun 6, 2018
  * @since 0.2.0
  */
 @Repository
@@ -82,8 +82,8 @@ public class TagRepository extends AbstractRepository {
     }
 
     @Override
-    public void update(final String id, final JSONObject article) throws RepositoryException {
-        super.update(id, article);
+    public void update(final String id, final JSONObject article, final String... propertyNames) throws RepositoryException {
+        super.update(id, article, propertyNames);
 
         article.put(Keys.OBJECT_ID, id);
         tagCache.putTag(article);
@@ -168,7 +168,7 @@ public class TagRepository extends AbstractRepository {
      */
     public List<JSONObject> getMostUsedTags(final int num) throws RepositoryException {
         final Query query = new Query().addSort(Tag.TAG_REFERENCE_CNT, SortDirection.DESCENDING).
-                setCurrentPageNum(1).setPageSize(num).setPageCount(1);
+                setPage(1, num).setPageCount(1);
 
         return getList(query);
     }

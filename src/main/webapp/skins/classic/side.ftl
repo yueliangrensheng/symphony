@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -31,7 +31,7 @@
     <div class="module-header">
         <h2>
             ${sponsorLabel} 
-            <a href="https://hacpai.com/article/1460083956075" class="fn-right ft-13 ft-gray" target="_blank">${wantPutOnLabel}</a>
+            <a href="${servePath}/about" class="fn-right ft-13 ft-gray" target="_blank">${wantPutOnLabel}</a>
         </h2>
     </div>
     <div class="module-panel ad fn-clear">
@@ -39,26 +39,34 @@
     </div>
 </div>
 </#if>
-<#--
-<#if navTrendTags?size!=0>
+
 <div class="module">
-    <div class="module-header">
-        <h2>
-            ${hotTopicLabel}
-        </h2>
+    <div class="module-header form">
+        <input id="breezemoonInput"
+               type="text"
+               class="comment__text breezemoon__input"
+               placeholder="${breezemoonLabel}"/>
+        <span id="breezemoonPostBtn" class="btn breezemoon__btn" data-csrf="${csrfToken}">${postLabel}</span>
     </div>
     <div class="module-panel">
-        <ul class="tags fn-clear">
-            <#list navTrendTags as trendTag>
+        <ul class="module-list">
+        <#list sideBreezemoons as item>
             <li>
-                <a class="btn small" rel="nofollow" href="${servePath}/tag/${trendTag.tagURI}">${trendTag.tagTitle}</a>
+                <a href="${servePath}/member/${item.breezemoonAuthorName}">
+                    <span class="avatar-small slogan tooltipped tooltipped-se" aria-label="${item.breezemoonAuthorName}"
+                          style="background-image: url(${item.breezemoonAuthorThumbnailURL48})"></span>
+                </a>
+                <a href="${servePath}/member/${item.breezemoonAuthorName}/breezemoons/${item.oId}"
+                   class="title">${item.breezemoonContent}</a>
             </li>
-            </#list>
+        </#list>
+            <#if sideBreezemoons?size == 0>
+                <li class="ft-center ft-gray">${chickenEggLabel}</li>
+            </#if>
         </ul>
     </div>
 </div>
-</#if>
--->
+
 <#if sideHotArticles?size!=0>
 <div class="module">
     <div class="module-header">
@@ -153,31 +161,6 @@
                 <a class="ft-gray ft-13" rel="nofollow" href="${servePath}/tag/${newTag.tagURI}">${newTag.tagTitle}</a> &nbsp;
             </li>
             </#list>
-        </ul>
-    </div>
-</div>
-<div class="module">
-    <div class="module-header">
-        <h2>开源项目</h2>
-    </div>
-    <div class="module-panel">
-        <ul class="module-list open-source">
-            <li>
-                <a target="_blank" rel="noopener" href="https://github.com/b3log/solo"><b class="ft-red slogan">【Solo】</b></a>
-                <a class="title" target="_blank" rel="noopener" href="https://github.com/b3log/solo">GitHub 上 Star 数最多的 Java 博客</a>
-            </li>
-            <li class="last">
-                <a target="_blank" rel="noopener" href="https://github.com/b3log/symphony"> <b class="ft-green slogan">【Sym】</b></a>
-                <a class="title" target="_blank" rel="noopener" href="https://github.com/b3log/symphony">现代化的社区论坛系统</a>
-            </li>
-            <li class="last">
-                <a target="_blank" rel="noopener" href="https://github.com/b3log/pipe"> <b class="ft-gray slogan">【Pipe】</b></a>
-                <a class="title" target="_blank" rel="noopener" href="https://github.com/b3log/pipe">小而美的博客平台</a>
-            </li>
-            <li>
-                <a target="_blank" rel="noopener" href="https://github.com/b3log/wide"><b class="ft-blue slogan">【Wide】</b></a>
-                <a class="title" target="_blank" rel="noopener" href="https://github.com/b3log/wide">Golang 黑科技之在线 IDE </a>
-            </li>
         </ul>
     </div>
 </div>

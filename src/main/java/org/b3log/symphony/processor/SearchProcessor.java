@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -42,6 +42,7 @@ import org.b3log.symphony.service.DataModelService;
 import org.b3log.symphony.service.SearchQueryService;
 import org.b3log.symphony.service.UserQueryService;
 import org.b3log.symphony.util.Escapes;
+import org.b3log.symphony.util.Sessions;
 import org.b3log.symphony.util.Symphonys;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -110,35 +111,32 @@ public class SearchProcessor {
     @After({PermissionGrant.class, StopwatchEndAdvice.class})
     public void search(final RequestContext context) {
         final HttpServletRequest request = context.getRequest();
-        final HttpServletResponse response = context.getResponse();
 
-        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(request);
-        context.setRenderer(renderer);
-        renderer.setTemplateName("search-articles.ftl");
+        final AbstractFreeMarkerRenderer renderer = new SkinRenderer(context, "search-articles.ftl");
 
-        if (!Symphonys.getBoolean("es.enabled") && !Symphonys.getBoolean("algolia.enabled")) {
+        if (!Symphonys.ES_ENABLED && !Symphonys.ALGOLIA_ENABLED) {
             context.sendError(HttpServletResponse.SC_NOT_FOUND);
 
             return;
         }
 
         final Map<String, Object> dataModel = renderer.getDataModel();
-        String keyword = request.getParameter("key");
+        String keyword = context.param("key");
         if (StringUtils.isBlank(keyword)) {
             keyword = "";
         }
         dataModel.put(Common.KEY, Escapes.escapeHTML(keyword));
 
         final int pageNum = Paginator.getPage(request);
-        int pageSize = Symphonys.getInt("indexArticlesCnt");
-        final JSONObject user = (JSONObject) request.getAttribute(Common.CURRENT_USER);
+        int pageSize = Symphonys.ARTICLE_LIST_CNT;
+        final JSONObject user = Sessions.getUser();
         if (null != user) {
             pageSize = user.optInt(UserExt.USER_LIST_PAGE_SIZE);
         }
         final List<JSONObject> articles = new ArrayList<>();
         int total = 0;
 
-        if (Symphonys.getBoolean("es.enabled")) {
+        if (Symphonys.ES_ENABLED) {
             final JSONObject result = searchQueryService.searchElasticsearch(Article.ARTICLE, keyword, pageNum, pageSize);
             if (null == result || 0 != result.optInt("status")) {
                 context.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -157,7 +155,7 @@ public class SearchProcessor {
             total = result.optInt("total");
         }
 
-        if (Symphonys.getBoolean("algolia.enabled")) {
+        if (Symphonys.ALGOLIA_ENABLED) {
             final JSONObject result = searchQueryService.searchAlgolia(keyword, pageNum, pageSize);
             if (null == result) {
                 context.sendError(HttpServletResponse.SC_NOT_FOUND);
@@ -178,16 +176,14 @@ public class SearchProcessor {
             }
         }
 
-        final int avatarViewMode = (int) request.getAttribute(UserExt.USER_AVATAR_VIEW_MODE);
-
-        articleQueryService.organizeArticles(avatarViewMode, articles);
-        final Integer participantsCnt = Symphonys.getInt("latestArticleParticipantsCnt");
-        articleQueryService.genParticipants(avatarViewMode, articles, participantsCnt);
+        articleQueryService.organizeArticles(articles);
+        final Integer participantsCnt = Symphonys.ARTICLE_LIST_PARTICIPANTS_CNT;
+        articleQueryService.genParticipants(articles, participantsCnt);
 
         dataModel.put(Article.ARTICLES, articles);
 
         final int pageCount = (int) Math.ceil(total / (double) pageSize);
-        final List<Integer> pageNums = Paginator.paginate(pageNum, pageSize, pageCount, Symphonys.getInt("defaultPaginationWindowSize"));
+        final List<Integer> pageNums = Paginator.paginate(pageNum, pageSize, pageCount, Symphonys.ARTICLE_LIST_WIN_SIZE);
         if (!pageNums.isEmpty()) {
             dataModel.put(Pagination.PAGINATION_FIRST_PAGE_NUM, pageNums.get(0));
             dataModel.put(Pagination.PAGINATION_LAST_PAGE_NUM, pageNums.get(pageNums.size() - 1));
@@ -197,7 +193,7 @@ public class SearchProcessor {
         dataModel.put(Pagination.PAGINATION_PAGE_COUNT, pageCount);
         dataModel.put(Pagination.PAGINATION_PAGE_NUMS, pageNums);
 
-        dataModelService.fillHeaderAndFooter(request, response, dataModel);
+        dataModelService.fillHeaderAndFooter(context, dataModel);
         dataModelService.fillRandomArticles(dataModel);
         dataModelService.fillSideHotArticles(dataModel);
         dataModelService.fillSideTags(dataModel);

@@ -1,7 +1,7 @@
 <#--
 
     Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
-    Copyright (C) 2012-2018, b3log.org & hacpai.com
+    Copyright (C) 2012-present, b3log.org
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as published by
@@ -33,7 +33,7 @@
             <#list invitecodes as item>
             <li>
                 <div class="fn-clear">
-                    <span class="content-reset"><kbd>${item.code}</kbd></span>&nbsp;
+                    <span class="vditor-reset"><kbd>${item.code}</kbd></span>&nbsp;
                     <#if 0 == item.status>
                     <span class="ft-blue">${usedLabel}</span>
                     <#elseif 1 == item.status>

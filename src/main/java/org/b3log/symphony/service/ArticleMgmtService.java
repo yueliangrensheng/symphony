@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -17,7 +17,6 @@
  */
 package org.b3log.symphony.service;
 
-import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang.ArrayUtils;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.time.DateFormatUtils;
@@ -34,7 +33,6 @@ import org.b3log.latke.service.LangPropsService;
 import org.b3log.latke.service.ServiceException;
 import org.b3log.latke.service.annotation.Service;
 import org.b3log.latke.util.Ids;
-import org.b3log.latke.util.Strings;
 import org.b3log.latke.util.URLs;
 import org.b3log.symphony.event.EventTypes;
 import org.b3log.symphony.model.*;
@@ -47,22 +45,16 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.yaml.snakeyaml.Yaml;
 
-import java.io.File;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.attribute.FileTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Article management service.
  *
  * @author <a href="http://88250.b3log.org">Liang Ding</a>
  * @author <a href="http://zephyr.b3log.org">Zephyr</a>
- * @version 2.18.5.1, Dec 16, 2018
+ * @author <a href="https://qiankunpingtai.cn">qiankunpingtai</a>
+ * @version 2.18.5.11, Jun 6, 2019
  * @since 0.2.0
  */
 @Service
@@ -343,7 +335,7 @@ public class ArticleMgmtService {
                 final JSONObject toUpdate = articleRepository.get(articleId);
                 toUpdate.put(Article.ARTICLE_AUDIO_URL, audioURL);
                 final Transaction transaction = articleRepository.beginTransaction();
-                articleRepository.update(articleId, toUpdate);
+                articleRepository.update(articleId, toUpdate, Article.ARTICLE_AUDIO_URL);
                 transaction.commit();
                 LOGGER.debug("Generated article [id=" + articleId + "] audio");
             } catch (final Exception e) {
@@ -366,8 +358,7 @@ public class ArticleMgmtService {
                 return;
             }
 
-            Query query = new Query().setFilter(new PropertyFilter(
-                    Comment.COMMENT_ON_ARTICLE_ID, FilterOperator.EQUAL, articleId)).setPageCount(1);
+            Query query = new Query().setFilter(new PropertyFilter(Comment.COMMENT_ON_ARTICLE_ID, FilterOperator.EQUAL, articleId)).setPageCount(1);
             final JSONArray comments = commentRepository.get(query).optJSONArray(Keys.RESULTS);
             final int commentCnt = comments.length();
             for (int i = 0; i < commentCnt; i++) {
@@ -379,8 +370,12 @@ public class ArticleMgmtService {
 
             final String authorId = article.optString(Article.ARTICLE_AUTHOR_ID);
             final JSONObject author = userRepository.get(authorId);
-            author.put(UserExt.USER_ARTICLE_COUNT, author.optInt(UserExt.USER_ARTICLE_COUNT) - 1);
-            userRepository.update(author.optString(Keys.OBJECT_ID), author);
+            int articleCount = author.optInt(UserExt.USER_ARTICLE_COUNT) - 1;
+            if (0 > articleCount) {
+                articleCount = 0;
+            }
+            author.put(UserExt.USER_ARTICLE_COUNT, articleCount);
+            userRepository.update(author.optString(Keys.OBJECT_ID), author, UserExt.USER_ARTICLE_COUNT);
 
             final String city = article.optString(Article.ARTICLE_CITY);
             final String cityStatId = city + "-ArticleCount";
@@ -424,11 +419,11 @@ public class ArticleMgmtService {
             rewardRepository.removeByDataId(articleId);
             voteRepository.removeByDataId(articleId);
 
-            if (Symphonys.getBoolean("algolia.enabled")) {
+            if (Symphonys.ALGOLIA_ENABLED) {
                 searchMgmtService.removeAlgoliaDocument(article);
             }
 
-            if (Symphonys.getBoolean("es.enabled")) {
+            if (Symphonys.ES_ENABLED) {
                 searchMgmtService.removeESDocument(article, Article.ARTICLE);
             }
 
@@ -478,7 +473,7 @@ public class ArticleMgmtService {
                 article.put(Article.ARTICLE_VIEW_CNT, viewCnt + 1);
                 article.put(Article.ARTICLE_RANDOM_DOUBLE, Math.random());
 
-                articleRepository.update(articleId, article);
+                articleRepository.update(articleId, article, Article.ARTICLE_VIEW_CNT, Article.ARTICLE_RANDOM_DOUBLE);
 
                 transaction.commit();
             } catch (final RepositoryException e) {
@@ -508,8 +503,8 @@ public class ArticleMgmtService {
      *                          "articleIP": "", // optional, default to ""
      *                          "articleUA": "", // optional, default to ""
      *                          "articleAnonymous": int, // optional, default to 0 (public)
-     *                          "articleAnonymousView": int // optional, default to 0 (use global)
-     *                          , see {@link Article} for more details
+     *                          "articleAnonymousView": int, // optional, default to 0 (use global)
+     *                          "articleNotifyFollowers": boolean
      * @return generated article id
      * @throws ServiceException service exception
      */
@@ -550,16 +545,16 @@ public class ArticleMgmtService {
                 throw new ServiceException(langPropsService.get("userStatusInvalidLabel"));
             }
 
-            if (currentTimeMillis - author.optLong(Keys.OBJECT_ID) < Symphonys.getLong("newbieFirstArticle")) {
+            if (currentTimeMillis - author.optLong(Keys.OBJECT_ID) < Symphonys.NEWBIE_FIRST_ARTICLE) {
                 String tip = langPropsService.get("newbieFirstArticleLabel");
-                final long time = author.optLong(Keys.OBJECT_ID) + Symphonys.getLong("newbieFirstArticle");
+                final long time = author.optLong(Keys.OBJECT_ID) + Symphonys.NEWBIE_FIRST_ARTICLE;
                 final String timeStr = DateFormatUtils.format(time, "yyyy-MM-dd HH:mm:ss");
                 tip = tip.replace("${time}", timeStr);
 
                 throw new ServiceException(tip);
             }
 
-            if (currentTimeMillis - author.optLong(UserExt.USER_LATEST_ARTICLE_TIME) < Symphonys.getLong("minStepArticleTime")
+            if (currentTimeMillis - author.optLong(UserExt.USER_LATEST_ARTICLE_TIME) < Symphonys.MIN_STEP_ARTICLE_TIME
                     && !Role.ROLE_ID_C_ADMIN.equals(author.optString(User.USER_ROLE))) {
                 LOGGER.log(Level.WARN, "Adds article too frequent [userName={0}]", author.optString(User.USER_NAME));
                 throw new ServiceException(langPropsService.get("tooFrequentArticleLabel"));
@@ -567,7 +562,7 @@ public class ArticleMgmtService {
 
             final int balance = author.optInt(UserExt.USER_POINT);
             if (Article.ARTICLE_ANONYMOUS_C_ANONYMOUS == articleAnonymous) {
-                final int anonymousPoint = Symphonys.getInt("anonymous.point");
+                final int anonymousPoint = Symphonys.ANONYMOUS_POST_POINT;
                 if (balance < anonymousPoint) {
                     String anonymousEnabelPointLabel = langPropsService.get("anonymousEnabelPointLabel");
                     anonymousEnabelPointLabel
@@ -577,7 +572,6 @@ public class ArticleMgmtService {
             }
 
             if (Article.ARTICLE_ANONYMOUS_C_PUBLIC == articleAnonymous) {
-                // Point
                 final long followerCnt = followQueryService.getFollowerCount(authorId, Follow.FOLLOWING_TYPE_C_USER);
                 final int addition = (int) Math.round(Math.sqrt(followerCnt));
                 final int broadcast = Article.ARTICLE_TYPE_C_CITY_BROADCAST == articleType ?
@@ -630,10 +624,14 @@ public class ArticleMgmtService {
             //articleContent = StringUtils.trim(articleContent) + " "; https://github.com/b3log/symphony/issues/389
             articleContent = StringUtils.replace(articleContent, langPropsService.get("uploadingLabel", Locale.SIMPLIFIED_CHINESE), "");
             articleContent = StringUtils.replace(articleContent, langPropsService.get("uploadingLabel", Locale.US), "");
+            if (Article.ARTICLE_TYPE_C_THOUGHT != articleType) {
+                articleContent = Runes.removeControlChars(articleContent);
+            }
             article.put(Article.ARTICLE_CONTENT, articleContent);
 
             String rewardContent = requestJSONObject.optString(Article.ARTICLE_REWARD_CONTENT);
             rewardContent = Emotions.toAliases(rewardContent);
+            rewardContent = Runes.removeControlChars(rewardContent);
             article.put(Article.ARTICLE_REWARD_CONTENT, rewardContent);
 
             article.put(Article.ARTICLE_EDITOR_TYPE, requestJSONObject.optInt(Article.ARTICLE_EDITOR_TYPE));
@@ -672,37 +670,18 @@ public class ArticleMgmtService {
 
             String articleTags = article.optString(Article.ARTICLE_TAGS);
             articleTags = Tag.formatTags(articleTags);
-            boolean sandboxEnv = false;
             if (StringUtils.containsIgnoreCase(articleTags, Tag.TAG_TITLE_C_SANDBOX)) {
                 articleTags = Tag.TAG_TITLE_C_SANDBOX;
-                sandboxEnv = true;
             }
-
-            String[] tagTitles = articleTags.split(",");
-            if (!sandboxEnv && tagTitles.length < TAG_MAX_CNT && tagTitles.length < 3
-                    && Article.ARTICLE_TYPE_C_DISCUSSION != articleType
-                    && Article.ARTICLE_TYPE_C_THOUGHT != articleType && !Tag.containsReservedTags(articleTags)) {
-                final String content = article.optString(Article.ARTICLE_TITLE)
-                        + " " + Jsoup.parse("<p>" + article.optString(Article.ARTICLE_CONTENT) + "</p>").text();
-
-                final List<String> genTags = tagQueryService.generateTags(content, 1);
-                if (!genTags.isEmpty()) {
-                    articleTags = articleTags + "," + StringUtils.join(genTags, ",");
-                    articleTags = Tag.formatTags(articleTags);
-                    articleTags = Tag.useHead(articleTags, TAG_MAX_CNT);
-                }
-            }
-
             if (StringUtils.isBlank(articleTags)) {
-                articleTags = "B3log";
+                articleTags = "待分类";
             }
-
             articleTags = Tag.formatTags(articleTags);
             if (Article.ARTICLE_TYPE_C_QNA == articleType && !StringUtils.contains(articleTags, "Q&A")) {
                 articleTags += ",Q&A";
             }
             article.put(Article.ARTICLE_TAGS, articleTags);
-            tagTitles = articleTags.split(",");
+            final String[] tagTitles = articleTags.split(",");
 
             tag(tagTitles, article, author);
 
@@ -716,7 +695,7 @@ public class ArticleMgmtService {
             article.put(Article.ARTICLE_UA, ua);
 
             article.put(Article.ARTICLE_STICK, 0L);
-
+            article.put(Article.ARTICLE_SHOW_IN_LIST, requestJSONObject.optInt(Article.ARTICLE_SHOW_IN_LIST, Article.ARTICLE_SHOW_IN_LIST_C_YES));
             final JSONObject articleCntOption = optionRepository.get(Option.ID_C_STATISTIC_ARTICLE_COUNT);
             final int articleCnt = articleCntOption.optInt(Option.OPTION_VALUE);
             articleCntOption.put(Option.OPTION_VALUE, articleCnt + 1);
@@ -749,18 +728,14 @@ public class ArticleMgmtService {
             final String articleId = articleRepository.add(article);
 
             if (Article.ARTICLE_TYPE_C_THOUGHT != articleType) {
-                // Revision
                 final JSONObject revision = new JSONObject();
                 revision.put(Revision.REVISION_AUTHOR_ID, authorId);
-
                 final JSONObject revisionData = new JSONObject();
                 revisionData.put(Article.ARTICLE_TITLE, articleTitle);
                 revisionData.put(Article.ARTICLE_CONTENT, articleContent);
-
                 revision.put(Revision.REVISION_DATA, revisionData.toString());
                 revision.put(Revision.REVISION_DATA_ID, articleId);
                 revision.put(Revision.REVISION_DATA_TYPE, Revision.DATA_TYPE_C_ARTICLE);
-
                 revisionRepository.add(revision);
             }
 
@@ -775,7 +750,6 @@ public class ArticleMgmtService {
             tagMgmtService.relateTags(article.optString(Article.ARTICLE_TAGS));
 
             if (Article.ARTICLE_ANONYMOUS_C_PUBLIC == articleAnonymous) {
-                // Point
                 final long followerCnt = followQueryService.getFollowerCount(authorId, Follow.FOLLOWING_TYPE_C_USER);
                 final int addition = (int) Math.round(Math.sqrt(followerCnt));
 
@@ -799,9 +773,9 @@ public class ArticleMgmtService {
                 livenessMgmtService.incLiveness(authorId, Liveness.LIVENESS_ARTICLE);
             }
 
-            // Event
             final JSONObject eventData = new JSONObject();
             eventData.put(Article.ARTICLE, article);
+            eventData.put(Article.ARTICLE_T_NOTIFY_FOLLOWERS, requestJSONObject.optBoolean(Article.ARTICLE_T_NOTIFY_FOLLOWERS));
             eventManager.fireEventAsynchronously(new Event<>(EventTypes.ADD_ARTICLE, eventData));
 
             return ret;
@@ -831,18 +805,19 @@ public class ArticleMgmtService {
      *                          "articleQnAOfferPoint": int, // optional, default to 0
      *                          "articleIP": "", // optional, default to ""
      *                          "articleUA": "", // optional default to ""
-     *                          , see {@link Article} for more details
+     *                          "articleNotifyFollowers": boolean
      * @throws ServiceException service exception
      */
     public synchronized void updateArticle(final JSONObject requestJSONObject) throws ServiceException {
         String articleTitle = requestJSONObject.optString(Article.ARTICLE_TITLE);
 
         String articleId;
+        JSONObject articleToUpdate;
         JSONObject oldArticle;
         String authorId;
         JSONObject author;
         int updatePointSum;
-        int articleAnonymous = 0;
+        int articleAnonymous;
 
         try {
             // check if admin allow to add article
@@ -853,8 +828,9 @@ public class ArticleMgmtService {
             }
 
             articleId = requestJSONObject.optString(Keys.OBJECT_ID);
-            oldArticle = articleRepository.get(articleId);
-            authorId = oldArticle.optString(Article.ARTICLE_AUTHOR_ID);
+            articleToUpdate = articleRepository.get(articleId);
+            oldArticle = JSONs.clone(articleToUpdate);
+            authorId = articleToUpdate.optString(Article.ARTICLE_AUTHOR_ID);
             author = userRepository.get(authorId);
             if (UserExt.USER_STATUS_C_VALID != author.optInt(UserExt.USER_STATUS)) {
                 throw new ServiceException(langPropsService.get("userStatusInvalidLabel"));
@@ -867,10 +843,9 @@ public class ArticleMgmtService {
             addition += (collectCnt + watchCnt) * 2;
             updatePointSum = Pointtransfer.TRANSFER_SUM_C_UPDATE_ARTICLE + addition;
 
-            articleAnonymous = oldArticle.optInt(Article.ARTICLE_ANONYMOUS);
+            articleAnonymous = articleToUpdate.optInt(Article.ARTICLE_ANONYMOUS);
 
             if (Article.ARTICLE_ANONYMOUS_C_PUBLIC == articleAnonymous) {
-                // Point
                 final int balance = author.optInt(UserExt.USER_POINT);
                 if (balance - updatePointSum < 0) {
                     throw new ServiceException(langPropsService.get("insufficientBalanceLabel"));
@@ -879,7 +854,7 @@ public class ArticleMgmtService {
 
             final JSONObject maybeExist = articleRepository.getByTitle(articleTitle);
             if (null != maybeExist) {
-                if (!oldArticle.optString(Article.ARTICLE_TITLE).equals(articleTitle)) {
+                if (!articleToUpdate.optString(Article.ARTICLE_TITLE).equals(articleTitle)) {
                     final String existArticleAuthorId = maybeExist.optString(Article.ARTICLE_AUTHOR_ID);
                     String msg;
                     if (existArticleAuthorId.equals(authorId)) {
@@ -903,10 +878,10 @@ public class ArticleMgmtService {
         }
 
         final int qnaOfferPoint = requestJSONObject.optInt(Article.ARTICLE_QNA_OFFER_POINT, 0);
-        if (qnaOfferPoint < oldArticle.optInt(Article.ARTICLE_QNA_OFFER_POINT)) { // Increase only to prevent lowering points when adopting answer
+        if (qnaOfferPoint < articleToUpdate.optInt(Article.ARTICLE_QNA_OFFER_POINT)) { // Increase only to prevent lowering points when adopting answer
             throw new ServiceException(langPropsService.get("qnaOfferPointMustMoreThanOldLabel"));
         }
-        oldArticle.put(Article.ARTICLE_QNA_OFFER_POINT, qnaOfferPoint);
+        articleToUpdate.put(Article.ARTICLE_QNA_OFFER_POINT, qnaOfferPoint);
 
         final int articleType = requestJSONObject.optInt(Article.ARTICLE_TYPE, Article.ARTICLE_TYPE_C_NORMAL);
 
@@ -914,83 +889,87 @@ public class ArticleMgmtService {
 
         try {
             requestJSONObject.put(Article.ARTICLE_ANONYMOUS, articleAnonymous);
-            processTagsForArticleUpdate(oldArticle, requestJSONObject, author);
+            processTagsForArticleUpdate(articleToUpdate, requestJSONObject, author);
             userRepository.update(author.optString(Keys.OBJECT_ID), author);
 
             articleTitle = Emotions.toAliases(articleTitle);
             articleTitle = Pangu.spacingText(articleTitle);
 
-            final String oldTitle = oldArticle.optString(Article.ARTICLE_TITLE);
-            oldArticle.put(Article.ARTICLE_TITLE, articleTitle);
+            final String oldTitle = articleToUpdate.optString(Article.ARTICLE_TITLE);
+            articleToUpdate.put(Article.ARTICLE_TITLE, articleTitle);
 
-            oldArticle.put(Article.ARTICLE_TAGS, requestJSONObject.optString(Article.ARTICLE_TAGS));
-            oldArticle.put(Article.ARTICLE_COMMENTABLE, requestJSONObject.optBoolean(Article.ARTICLE_COMMENTABLE, true));
-            oldArticle.put(Article.ARTICLE_TYPE, articleType);
-
+            articleToUpdate.put(Article.ARTICLE_TAGS, requestJSONObject.optString(Article.ARTICLE_TAGS));
+            articleToUpdate.put(Article.ARTICLE_COMMENTABLE, requestJSONObject.optBoolean(Article.ARTICLE_COMMENTABLE, true));
+            articleToUpdate.put(Article.ARTICLE_TYPE, articleType);
+            articleToUpdate.put(Article.ARTICLE_SHOW_IN_LIST, requestJSONObject.optInt(Article.ARTICLE_SHOW_IN_LIST, Article.ARTICLE_SHOW_IN_LIST_C_YES));
             String articleContent = requestJSONObject.optString(Article.ARTICLE_CONTENT);
             articleContent = Emotions.toAliases(articleContent);
             //articleContent = StringUtils.trim(articleContent) + " "; https://github.com/b3log/symphony/issues/389
             articleContent = articleContent.replace(langPropsService.get("uploadingLabel", Locale.SIMPLIFIED_CHINESE), "");
             articleContent = articleContent.replace(langPropsService.get("uploadingLabel", Locale.US), "");
+            if (Article.ARTICLE_TYPE_C_THOUGHT != articleType) {
+                articleContent = Runes.removeControlChars(articleContent);
+            }
 
-            final String oldContent = oldArticle.optString(Article.ARTICLE_CONTENT);
-            oldArticle.put(Article.ARTICLE_CONTENT, articleContent);
+            final String oldContent = articleToUpdate.optString(Article.ARTICLE_CONTENT);
+            articleToUpdate.put(Article.ARTICLE_CONTENT, articleContent);
 
             final long currentTimeMillis = System.currentTimeMillis();
-            final long createTime = oldArticle.optLong(Keys.OBJECT_ID);
-            oldArticle.put(Article.ARTICLE_UPDATE_TIME, currentTimeMillis);
+            final long createTime = articleToUpdate.optLong(Keys.OBJECT_ID);
+            final boolean notIn5m = currentTimeMillis - createTime > 1000 * 60 * 5;
+
+            articleToUpdate.put(Article.ARTICLE_UPDATE_TIME, currentTimeMillis);
 
             final int rewardPoint = requestJSONObject.optInt(Article.ARTICLE_REWARD_POINT, 0);
             boolean enableReward = false;
             if (0 < rewardPoint) {
-                if (1 > oldArticle.optInt(Article.ARTICLE_REWARD_POINT)) {
+                if (1 > articleToUpdate.optInt(Article.ARTICLE_REWARD_POINT)) {
                     enableReward = true;
                 }
 
                 String rewardContent = requestJSONObject.optString(Article.ARTICLE_REWARD_CONTENT);
                 rewardContent = Emotions.toAliases(rewardContent);
-                oldArticle.put(Article.ARTICLE_REWARD_CONTENT, rewardContent);
-                oldArticle.put(Article.ARTICLE_REWARD_POINT, rewardPoint);
+                rewardContent = Runes.removeControlChars(rewardContent);
+                articleToUpdate.put(Article.ARTICLE_REWARD_CONTENT, rewardContent);
+                articleToUpdate.put(Article.ARTICLE_REWARD_POINT, rewardPoint);
             }
 
             final String ip = requestJSONObject.optString(Article.ARTICLE_IP);
-            oldArticle.put(Article.ARTICLE_IP, ip);
+            articleToUpdate.put(Article.ARTICLE_IP, ip);
 
             String ua = requestJSONObject.optString(Article.ARTICLE_UA);
             if (StringUtils.length(ua) > Common.MAX_LENGTH_UA) {
                 ua = StringUtils.substring(ua, 0, Common.MAX_LENGTH_UA);
             }
-            oldArticle.put(Article.ARTICLE_UA, ua);
-            oldArticle.put(Article.ARTICLE_AUDIO_URL, ""); // 小薇语音预览更新 https://github.com/b3log/symphony/issues/791
+            articleToUpdate.put(Article.ARTICLE_UA, ua);
+            articleToUpdate.put(Article.ARTICLE_AUDIO_URL, ""); // 小薇语音预览更新 https://github.com/b3log/symphony/issues/791
 
-            articleRepository.update(articleId, oldArticle);
+            articleRepository.update(articleId, articleToUpdate);
 
-            if (Article.ARTICLE_TYPE_C_THOUGHT != articleType
-                    && (!oldContent.equals(articleContent) || !oldTitle.equals(articleTitle))) {
-                // Revision
+            final boolean titleChanged = !oldTitle.replaceAll("\\s+", "").equals(articleTitle.replaceAll("\\s+", ""));
+            final boolean contentChanged = !oldContent.replaceAll("\\s+", "").equals(articleContent.replaceAll("\\s+", ""));
+            if (notIn5m && Article.ARTICLE_TYPE_C_THOUGHT != articleType
+                    && (titleChanged || contentChanged)) {
                 final JSONObject revision = new JSONObject();
                 revision.put(Revision.REVISION_AUTHOR_ID, authorId);
-
                 final JSONObject revisionData = new JSONObject();
                 revisionData.put(Article.ARTICLE_TITLE, articleTitle);
                 revisionData.put(Article.ARTICLE_CONTENT, articleContent);
-
                 revision.put(Revision.REVISION_DATA, revisionData.toString());
                 revision.put(Revision.REVISION_DATA_ID, articleId);
                 revision.put(Revision.REVISION_DATA_TYPE, Revision.DATA_TYPE_C_ARTICLE);
-
                 revisionRepository.add(revision);
             }
 
             transaction.commit();
 
             try {
-                Thread.sleep(50); // wait for db write to avoid artitle duplication
+                Thread.sleep(50); // wait for db write to avoid article duplication
             } catch (final Exception e) {
             }
 
             if (Article.ARTICLE_ANONYMOUS_C_PUBLIC == articleAnonymous) {
-                if (currentTimeMillis - createTime > 1000 * 60 * 5) {
+                if (notIn5m) {
                     pointtransferMgmtService.transfer(authorId, Pointtransfer.ID_C_SYS,
                             Pointtransfer.TRANSFER_TYPE_C_UPDATE_ARTICLE,
                             updatePointSum, articleId, System.currentTimeMillis(), "");
@@ -1003,9 +982,10 @@ public class ArticleMgmtService {
                 }
             }
 
-            // Event
             final JSONObject eventData = new JSONObject();
-            eventData.put(Article.ARTICLE, oldArticle);
+            eventData.put(Article.ARTICLE, articleToUpdate);
+            eventData.put(Common.OLD_ARTICLE, oldArticle);
+            eventData.put(Article.ARTICLE_T_NOTIFY_FOLLOWERS, requestJSONObject.optBoolean(Article.ARTICLE_T_NOTIFY_FOLLOWERS));
             eventManager.fireEventAsynchronously(new Event<>(EventTypes.UPDATE_ARTICLE, eventData));
         } catch (final Exception e) {
             if (transaction.isActive()) {
@@ -1052,6 +1032,7 @@ public class ArticleMgmtService {
             } else {
                 String articleContent = article.optString(Article.ARTICLE_CONTENT);
                 articleContent = Emotions.toAliases(articleContent);
+                articleContent = Runes.removeControlChars(articleContent);
                 article.put(Article.ARTICLE_CONTENT, articleContent);
             }
 
@@ -1190,7 +1171,6 @@ public class ArticleMgmtService {
     public void thank(final String articleId, final String senderId) throws ServiceException {
         try {
             final JSONObject article = articleRepository.get(articleId);
-
             if (null == article) {
                 return;
             }
@@ -1241,7 +1221,7 @@ public class ArticleMgmtService {
             final int thankCnt = article.optInt(Article.ARTICLE_THANK_CNT);
             article.put(Article.ARTICLE_THANK_CNT, thankCnt + 1);
             final Transaction transaction = articleRepository.beginTransaction();
-            articleRepository.update(articleId, article);
+            articleRepository.update(articleId, article, Article.ARTICLE_THANK_CNT);
             transaction.commit();
 
             final JSONObject reward = new JSONObject();
@@ -1304,7 +1284,7 @@ public class ArticleMgmtService {
 
             article.put(Article.ARTICLE_STICK, System.currentTimeMillis());
 
-            articleRepository.update(articleId, article);
+            articleRepository.update(articleId, article, Article.ARTICLE_STICK);
 
             transaction.commit();
 
@@ -1340,7 +1320,7 @@ public class ArticleMgmtService {
 
             article.put(Article.ARTICLE_STICK, Long.MAX_VALUE);
 
-            articleRepository.update(articleId, article);
+            articleRepository.update(articleId, article, Article.ARTICLE_STICK);
         } catch (final RepositoryException e) {
             LOGGER.log(Level.ERROR, "Admin sticks an article[id=" + articleId + "] failed", e);
         }
@@ -1361,7 +1341,7 @@ public class ArticleMgmtService {
 
             article.put(Article.ARTICLE_STICK, 0L);
 
-            articleRepository.update(articleId, article);
+            articleRepository.update(articleId, article, Article.ARTICLE_STICK);
         } catch (final RepositoryException e) {
             LOGGER.log(Level.ERROR, "Admin cancel sticks an article[id=" + articleId + "] failed", e);
         }
@@ -1382,7 +1362,7 @@ public class ArticleMgmtService {
                 return;
             }
 
-            final long stepTime = Symphonys.getLong("stickArticleTime");
+            final long stepTime = Symphonys.STICK_ARTICLE_TIME;
             final long now = System.currentTimeMillis();
 
             for (int i = 0; i < articles.length(); i++) {
@@ -1396,7 +1376,7 @@ public class ArticleMgmtService {
 
                 if (expired < now) {
                     article.put(Article.ARTICLE_STICK, 0L);
-                    articleRepository.update(article.optString(Keys.OBJECT_ID), article);
+                    articleRepository.update(article.optString(Keys.OBJECT_ID), article, Article.ARTICLE_STICK);
                 }
             }
         } catch (final RepositoryException e) {
@@ -1427,29 +1407,12 @@ public class ArticleMgmtService {
         final List<JSONObject> oldTags = tagRepository.getByArticleId(oldArticleId);
         String tagsString = newArticle.getString(Article.ARTICLE_TAGS);
         tagsString = Tag.formatTags(tagsString);
-        boolean sandboxEnv = false;
         if (StringUtils.containsIgnoreCase(tagsString, Tag.TAG_TITLE_C_SANDBOX)) {
             tagsString = Tag.TAG_TITLE_C_SANDBOX;
-            sandboxEnv = true;
         }
-
-        String[] tagStrings = tagsString.split(",");
         final int articleType = newArticle.optInt(Article.ARTICLE_TYPE);
-        if (!sandboxEnv && tagStrings.length < TAG_MAX_CNT && tagStrings.length < 3
-                && Article.ARTICLE_TYPE_C_DISCUSSION != articleType
-                && Article.ARTICLE_TYPE_C_THOUGHT != articleType && !Tag.containsReservedTags(tagsString)) {
-            final String content = newArticle.optString(Article.ARTICLE_TITLE)
-                    + " " + Jsoup.parse("<p>" + newArticle.optString(Article.ARTICLE_CONTENT) + "</p>").text();
-            final List<String> genTags = tagQueryService.generateTags(content, 1);
-            if (!genTags.isEmpty()) {
-                tagsString = tagsString + "," + StringUtils.join(genTags, ",");
-                tagsString = Tag.formatTags(tagsString);
-                tagsString = Tag.useHead(tagsString, TAG_MAX_CNT);
-            }
-        }
-
         if (StringUtils.isBlank(tagsString)) {
-            tagsString = "B3log";
+            tagsString = "待分类";
         }
 
         tagsString = Tag.formatTags(tagsString);
@@ -1457,7 +1420,7 @@ public class ArticleMgmtService {
             tagsString += ",Q&A";
         }
         newArticle.put(Article.ARTICLE_TAGS, tagsString);
-        tagStrings = tagsString.split(",");
+        String[] tagStrings = tagsString.split(",");
 
         final List<JSONObject> newTags = new ArrayList<>();
 
@@ -1793,32 +1756,16 @@ public class ArticleMgmtService {
             article.put(Article.ARTICLE_CITY, "");
             String articleTags = requestJSONObject.optString(Article.ARTICLE_TAGS);
             articleTags = Tag.formatTags(articleTags);
-            boolean sandboxEnv = false;
             if (StringUtils.containsIgnoreCase(articleTags, Tag.TAG_TITLE_C_SANDBOX)) {
                 articleTags = Tag.TAG_TITLE_C_SANDBOX;
-                sandboxEnv = true;
             }
-
-            String[] tagTitles = articleTags.split(",");
-            if (!sandboxEnv && tagTitles.length < TAG_MAX_CNT && tagTitles.length < 3
-                    && !Tag.containsReservedTags(articleTags)) {
-                final String content = article.optString(Article.ARTICLE_TITLE)
-                        + " " + Jsoup.parse("<p>" + article.optString(Article.ARTICLE_CONTENT) + "</p>").text();
-                final List<String> genTags = tagQueryService.generateTags(content, TAG_MAX_CNT);
-                if (!genTags.isEmpty()) {
-                    articleTags = articleTags + "," + StringUtils.join(genTags, ",");
-                    articleTags = Tag.formatTags(articleTags);
-                    articleTags = Tag.useHead(articleTags, TAG_MAX_CNT);
-                }
-            }
-
             if (StringUtils.isBlank(articleTags)) {
-                articleTags = "B3log";
+                articleTags = "待分类";
             }
 
             articleTags = Tag.formatTags(articleTags);
             article.put(Article.ARTICLE_TAGS, articleTags);
-            tagTitles = articleTags.split(",");
+            String[] tagTitles = articleTags.split(",");
 
             tag(tagTitles, article, author);
 
@@ -1836,7 +1783,7 @@ public class ArticleMgmtService {
             article.put(Article.ARTICLE_PERFECT, Article.ARTICLE_PERFECT_C_NOT_PERFECT);
             article.put(Article.ARTICLE_ANONYMOUS_VIEW, Article.ARTICLE_ANONYMOUS_VIEW_C_USE_GLOBAL);
             article.put(Article.ARTICLE_AUDIO_URL, "");
-
+            article.put(Article.ARTICLE_SHOW_IN_LIST, requestJSONObject.optInt(Article.ARTICLE_SHOW_IN_LIST, Article.ARTICLE_SHOW_IN_LIST_C_YES));
             final JSONObject articleCntOption = optionRepository.get(Option.ID_C_STATISTIC_ARTICLE_COUNT);
             final int articleCnt = articleCntOption.optInt(Option.OPTION_VALUE);
             articleCntOption.put(Option.OPTION_VALUE, articleCnt + 1);
@@ -1854,7 +1801,6 @@ public class ArticleMgmtService {
             // Grows the tag graph
             tagMgmtService.relateTags(article.optString(Article.ARTICLE_TAGS));
 
-            // Event
             final JSONObject eventData = new JSONObject();
             eventData.put(Article.ARTICLE, article);
             eventManager.fireEventAsynchronously(new Event<>(EventTypes.ADD_ARTICLE, eventData));
@@ -1867,67 +1813,6 @@ public class ArticleMgmtService {
 
             LOGGER.log(Level.ERROR, "Admin adds an article failed", e);
             throw new ServiceException(e.getMessage());
-        }
-    }
-
-    /**
-     * Saves markdown file for the specified article.
-     *
-     * @param article the specified article
-     */
-    public void saveMarkdown(final JSONObject article) {
-        if (Article.ARTICLE_TYPE_C_THOUGHT == article.optInt(Article.ARTICLE_TYPE)
-                || Article.ARTICLE_TYPE_C_DISCUSSION == article.optInt(Article.ARTICLE_TYPE)
-                || StringUtils.containsIgnoreCase(article.optString(Article.ARTICLE_TAGS), Tag.TAG_TITLE_C_SANDBOX)) {
-            return;
-        }
-
-        final String dir = Symphonys.get("ipfs.dir");
-        if (StringUtils.isBlank(dir)) {
-            return;
-        }
-
-        final Path dirPath = Paths.get(dir);
-        try {
-            FileUtils.forceMkdir(dirPath.toFile());
-        } catch (final Exception e) {
-            LOGGER.log(Level.ERROR, "Creates dir [" + dirPath.toString() + "] for save markdown files failed", e);
-
-            return;
-        }
-
-        final String id = article.optString(Keys.OBJECT_ID);
-        final String authorName = article.optJSONObject(Article.ARTICLE_T_AUTHOR).optString(User.USER_NAME);
-        final Path mdPath = Paths.get(dir, "hacpai", authorName, id + ".md");
-        try {
-            if (mdPath.toFile().exists()) {
-                final FileTime lastModifiedTime = Files.getLastModifiedTime(mdPath);
-                if (lastModifiedTime.toMillis() + 1000 * 60 * 60 >= System.currentTimeMillis()) {
-                    return;
-                }
-            }
-        } catch (final Exception e) {
-            LOGGER.log(Level.ERROR, "Gets last modified time of file [" + mdPath.toString() + "] failed", e);
-
-            return;
-        }
-
-        try {
-            final Map<String, Object> hexoFront = new LinkedHashMap<>();
-            hexoFront.put("title", article.optString(Article.ARTICLE_TITLE));
-            hexoFront.put("date", DateFormatUtils.format((Date) article.opt(Article.ARTICLE_CREATE_TIME), "yyyy-MM-dd HH:mm:ss"));
-            hexoFront.put("updated", DateFormatUtils.format((Date) article.opt(Article.ARTICLE_UPDATE_TIME), "yyyy-MM-dd HH:mm:ss"));
-            final List<String> tags = Arrays.stream(article.optString(Article.ARTICLE_TAGS).split(",")).
-                    filter(StringUtils::isNotBlank).map(String::trim).collect(Collectors.toList());
-            if (tags.isEmpty()) {
-                tags.add("Sym");
-            }
-            hexoFront.put("tags", tags);
-
-            final String text = new Yaml().dump(hexoFront).replaceAll("\n", Strings.LINE_SEPARATOR) + "---" + Strings.LINE_SEPARATOR + article.optString(Article.ARTICLE_T_ORIGINAL_CONTENT);
-            FileUtils.writeStringToFile(new File(mdPath.toString()), text, "UTF-8");
-        } catch (final Exception e) {
-            LOGGER.log(Level.ERROR, "Writes article to markdown file [" + mdPath.toString() + "] failed", e);
         }
     }
 }

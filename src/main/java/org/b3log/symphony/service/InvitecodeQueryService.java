@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -112,13 +112,12 @@ public class InvitecodeQueryService {
     /**
      * Gets invitecodes by the specified request json object.
      *
-     * @param requestJSONObject the specified request json object, for example,      <pre>
-     *                                                                                                                              {
-     *                                                                                                                                  "paginationCurrentPageNum": 1,
-     *                                                                                                                                  "paginationPageSize": 20,
-     *                                                                                                                                  "paginationWindowSize": 10
-     *                                                                                                                              }, see {@link Pagination} for more details
-     *                                                                                                                              </pre>
+     * @param requestJSONObject the specified request json object, for example,
+     *                          {
+     *                          "paginationCurrentPageNum": 1,
+     *                          "paginationPageSize": 20,
+     *                          "paginationWindowSize": 10
+     *                          }
      * @return for example,      <pre>
      * {
      *     "pagination": {
@@ -141,7 +140,7 @@ public class InvitecodeQueryService {
         final int currentPageNum = requestJSONObject.optInt(Pagination.PAGINATION_CURRENT_PAGE_NUM);
         final int pageSize = requestJSONObject.optInt(Pagination.PAGINATION_PAGE_SIZE);
         final int windowSize = requestJSONObject.optInt(Pagination.PAGINATION_WINDOW_SIZE);
-        final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize).
+        final Query query = new Query().setPage(currentPageNum, pageSize).
                 addSort(Invitecode.STATUS, SortDirection.DESCENDING).
                 addSort(Keys.OBJECT_ID, SortDirection.DESCENDING);
 

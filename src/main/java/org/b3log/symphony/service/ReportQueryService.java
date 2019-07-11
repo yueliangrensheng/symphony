@@ -1,6 +1,6 @@
 /*
  * Symphony - A modern community (forum/BBS/SNS/blog) platform written in Java.
- * Copyright (C) 2012-2018, b3log.org & hacpai.com
+ * Copyright (C) 2012-present, b3log.org
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -136,7 +136,7 @@ public class ReportQueryService {
         final int currentPageNum = requestJSONObject.optInt(Pagination.PAGINATION_CURRENT_PAGE_NUM);
         final int pageSize = requestJSONObject.optInt(Pagination.PAGINATION_PAGE_SIZE);
         final int windowSize = requestJSONObject.optInt(Pagination.PAGINATION_WINDOW_SIZE);
-        final Query query = new Query().setCurrentPageNum(currentPageNum).setPageSize(pageSize).
+        final Query query = new Query().setPage(currentPageNum, pageSize).
                 addSort(Report.REPORT_HANDLED, SortDirection.ASCENDING).
                 addSort(Keys.OBJECT_ID, SortDirection.DESCENDING);
 
@@ -189,7 +189,7 @@ public class ReportQueryService {
                         if (null != comment) {
                             final String commentId = comment.optString(Keys.OBJECT_ID);
                             final int cmtViewMode = UserExt.USER_COMMENT_VIEW_MODE_C_REALTIME;
-                            reportData = commentQueryService.getCommentURL(commentId, cmtViewMode, Symphonys.getInt("articleCommentsPageSize"));
+                            reportData = commentQueryService.getCommentURL(commentId, cmtViewMode, Symphonys.ARTICLE_COMMENTS_CNT);
                         }
 
                         break;
